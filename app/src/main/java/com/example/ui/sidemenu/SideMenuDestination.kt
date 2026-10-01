@@ -1,0 +1,32 @@
+package com.example.ui.sidemenu
+
+sealed class SideMenuDestination(val title: String) {
+    // DJ Tools
+    object Metronome : SideMenuDestination("Metronome")
+    object TapBpm : SideMenuDestination("Tap BPM")
+    object KeyConverter : SideMenuDestination("Key Converter")
+    object RmsMeter : SideMenuDestination("RMS Meter")
+    object ClippingDetector : SideMenuDestination("Clipping Detector")
+    object DynamicRangeMeter : SideMenuDestination("Dynamic Range Meter")
+    object Eq : SideMenuDestination("Multipoint EQ")
+    object HaasSurround : SideMenuDestination("HAAS Surround")
+    object CarMode : SideMenuDestination("Car Mode")
+    object DjPrep : SideMenuDestination("DJ Prep")
+
+    // Settings
+    object ListeningStats : SideMenuDestination("Listening Stats")
+    object PlaybackSettings : SideMenuDestination("Playback & Audio")
+    object LibrarySettings : SideMenuDestination("Storage & Storage Services")
+    object MetadataSettings : SideMenuDestination("Metadata & Artwork")
+    object BackupRestore : SideMenuDestination("Backup & Restore")
+    object AppearanceSettings : SideMenuDestination("Appearance & Density")
+    object GitHubUpdates : SideMenuDestination("GitHub & App Updates")
+    object CarModeSettings : SideMenuDestination("Car Mode & Bluetooth")
+    object LibraryHealth : SideMenuDestination("Library Health")
+    object LibraryDoctor : SideMenuDestination("Library Doctor")
+    object MetadataReviewInbox : SideMenuDestination("MD Approval Tool")
+    object LibraryIntegrity : SideMenuDestination("Library Integrity")
+    object AboutSoundSync : SideMenuDestination("About SoundSync")
+    object DeveloperDiagnostics : SideMenuDestination("Developer Diagnostics")
+    object SoundSyncSelfTest : SideMenuDestination("SoundSync Self-Test")
+}

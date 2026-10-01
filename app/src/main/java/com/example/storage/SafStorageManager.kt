@@ -1,0 +1,430 @@
+package com.example.storage
+
+import android.content.Context
+import android.content.Intent
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.os.Build
+import android.util.Log
+import androidx.documentfile.provider.DocumentFile
+import com.example.analysis.TunebatMetadataService
+import com.example.model.AudioQualityRating
+import com.example.model.FolderItem
+import com.example.model.MusicPlatform
+import com.example.model.StorageSource
+import com.example.model.StorageSourceType
+import com.example.model.SyncState
+import com.example.model.Track
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.Locale
+
+object SafStorageManager {
+
+    private const val TAG = "SafStorageManager"
+
+    private val AUDIO_EXTENSIONS = setOf(
+        "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "aiff", "aif", "wma"
+    )
+
+    /**
+     * Persists SAF permission for a user-chosen folder URI
+     */
+    fun takePersistablePermissions(context: Context, treeUri: Uri) {
+        try {
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(treeUri, flags)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to persist URI permission for $treeUri", e)
+        }
+    }
+
+    /**
+     * Recursively or shallowly scans a SAF DocumentFile directory for audio files
+     */
+    suspend fun scanDocumentTree(
+        context: Context,
+        treeUri: Uri,
+        sourceId: String = "saf_custom",
+        sourceName: String = "Custom Folder",
+        onProgress: (current: Int, title: String) -> Unit = { _, _ -> }
+    ): List<Track> = withContext(Dispatchers.IO) {
+        val tracks = mutableListOf<Track>()
+        val rootDoc = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext tracks
+
+        if (!rootDoc.exists() || !rootDoc.canRead()) {
+            Log.w(TAG, "Root document is not readable or does not exist: $treeUri")
+            return@withContext tracks
+        }
+
+        var scannedCount = 0
+
+        fun scanFolderRecursive(folder: DocumentFile, currentPath: String) {
+            val files = folder.listFiles()
+            for (file in files) {
+                if (file.isDirectory) {
+                    val subPath = if (currentPath.endsWith("/")) "$currentPath${file.name}" else "$currentPath/${file.name}"
+                    scanFolderRecursive(file, subPath)
+                } else if (file.isFile) {
+                    val name = file.name ?: ""
+                    val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                    if (AUDIO_EXTENSIONS.contains(ext)) {
+                        scannedCount++
+                        onProgress(scannedCount, name)
+
+                        val track = extractTrackFromDocumentFile(context, file, currentPath, sourceId)
+                        if (track != null) {
+                            tracks.add(track)
+                        }
+                    }
+                }
+            }
+        }
+
+        val rootName = rootDoc.name ?: sourceName
+        scanFolderRecursive(rootDoc, "/$rootName")
+
+        tracks
+    }
+
+    /**
+     * Lists subfolders and audio files directly inside a SAF DocumentFile folder for interactive browsing
+     */
+    suspend fun listSafDirectory(
+        context: Context,
+        folderDoc: DocumentFile,
+        currentPath: String
+    ): Pair<List<FolderItem>, List<Track>> = withContext(Dispatchers.IO) {
+        val folders = mutableListOf<FolderItem>()
+        val tracks = mutableListOf<Track>()
+
+        try {
+            val files = folderDoc.listFiles()
+            for (file in files) {
+                if (file.isDirectory) {
+                    val name = file.name ?: "Folder"
+                    val subPath = if (currentPath.endsWith("/")) "$currentPath$name" else "$currentPath/$name"
+                    folders.add(
+                        FolderItem(
+                            name = name,
+                            path = subPath,
+                            trackCount = 0,
+                            subFolderCount = 0,
+                            totalSizeMb = 0.0
+                        )
+                    )
+                } else if (file.isFile) {
+                    val name = file.name ?: ""
+                    val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                    if (AUDIO_EXTENSIONS.contains(ext)) {
+                        val track = extractTrackFromDocumentFile(context, file, currentPath, "saf_folder")
+                        if (track != null) {
+                            tracks.add(track)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error listing SAF directory", e)
+        }
+
+        Pair(folders.sortedBy { it.name.lowercase() }, tracks.sortedBy { it.title.lowercase() })
+    }
+
+    private fun extractTrackFromDocumentFile(
+        context: Context,
+        file: DocumentFile,
+        folderPath: String,
+        sourceId: String
+    ): Track? {
+        val uri = file.uri
+        val name = file.name ?: "Unknown Track"
+        val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        val sizeBytes = file.length()
+        val sizeMb = sizeBytes.toDouble() / (1024.0 * 1024.0)
+        val format = MediaScannerHelper.resolveFormat(name, file.type ?: "")
+        val fallbackTitle = name.substringBeforeLast(".")
+
+        var title = fallbackTitle
+        var artist = "Unknown Artist"
+        var album = "Single"
+        var genre = "DJ Library"
+        var durationSec = 210
+        var bitrateKbps = if (format == "FLAC" || format == "WAV") 1411 else 320
+        var bpm = 0.0
+        var musicalKey = ""
+        var sampleRate = 44100
+        var bitDepth = 16
+
+        val embedded = com.example.metadata.AudioEmbeddedMetadataReader.read(context, uri.toString())
+        if (embedded.title?.isNotBlank() == true) title = embedded.title
+        if (embedded.artist?.isNotBlank() == true) artist = embedded.artist
+        if (embedded.album?.isNotBlank() == true) album = embedded.album
+        if (embedded.genre?.isNotBlank() == true) genre = embedded.genre
+        if (embedded.hasBpm) bpm = embedded.bpm ?: 0.0
+        if (embedded.hasKey) musicalKey = embedded.camelotKey ?: embedded.musicalKey.orEmpty()
+
+        val retriever = MediaMetadataRetriever()
+        try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                retriever.setDataSource(pfd.fileDescriptor)
+                val mTitle = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                val mArtist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                    ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+                val mAlbum = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                val mGenre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE)
+                val mDuration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                val mBitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                val mSampleRate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull()
+                } else null
+                val mBitDepth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)?.toIntOrNull()
+                } else null
+
+                if (!mTitle.isNullOrBlank() && title == name.substringBeforeLast(".")) title = mTitle
+                if (!mArtist.isNullOrBlank() && mArtist != "<unknown>" && artist == "Unknown Artist") artist = mArtist
+                if (!mAlbum.isNullOrBlank() && mAlbum != "<unknown>" && album == "Single") album = mAlbum
+                if (!mGenre.isNullOrBlank() && genre == "DJ Library") genre = mGenre
+                if (mDuration != null) {
+                    val dMs = mDuration.toLongOrNull() ?: 0L
+                    if (dMs > 1000L) {
+                        durationSec = (dMs / 1000L).toInt()
+                    }
+                }
+                if (mBitrate != null) {
+                    bitrateKbps = (mBitrate.toIntOrNull() ?: (bitrateKbps * 1000)) / 1000
+                }
+                if (mSampleRate != null && mSampleRate > 0) sampleRate = mSampleRate
+                if (mBitDepth != null && mBitDepth > 0) bitDepth = mBitDepth
+            }
+        } catch (e: Exception) {
+            Log.v(TAG, "Retriever skipped or fallback for $name: ${e.message}")
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
+        }
+
+        val effectiveDurationSec = when {
+            embedded.durationSeconds > 1 -> embedded.durationSeconds
+            durationSec > 1 -> durationSec
+            embedded.durationSeconds > 0 -> embedded.durationSeconds
+            durationSec > 0 -> durationSec
+            else -> 0
+        }
+        val effectiveBitrateKbps = when {
+            embedded.bitrateKbps > 0 -> embedded.bitrateKbps
+            bitrateKbps > 0 -> bitrateKbps
+            else -> 0
+        }
+
+        // Infer BPM and Key heuristics from filename if tagged like "128_8A_Artist_Title"
+        val cleanName = name.replace("_", " ").replace("-", " ")
+        val bpmMatch = Regex("""\b(1[1-3][0-9]|14[0-9]|9[0-9])\s*(?:bpm)?\b""", RegexOption.IGNORE_CASE).find(cleanName)
+        if (bpmMatch != null) {
+            bpmMatch.groupValues[1].toDoubleOrNull()?.let { if (bpm <= 0.0) bpm = it }
+        }
+
+        val keyMatch = Regex("""\b([1-9]|1[0-2])([A-B])\b""", RegexOption.IGNORE_CASE).find(name)
+        if (keyMatch != null) {
+            if (musicalKey.isBlank()) musicalKey = keyMatch.value.uppercase(Locale.ROOT)
+        }
+
+        val qualityRating = when {
+            format == "FLAC" && (sampleRate >= 96000 || bitDepth >= 24) -> AudioQualityRating.STUDIO_LOSSLESS
+            format == "FLAC" || format == "WAV" || format == "AIFF" -> AudioQualityRating.TRUE_LOSSLESS
+            bitrateKbps >= 310 -> AudioQualityRating.TRUE_320
+            bitrateKbps >= 240 -> AudioQualityRating.TRUE_256
+            bitrateKbps < 160 -> AudioQualityRating.LOW_128
+            else -> AudioQualityRating.TRUE_320
+        }
+
+        val id = "saf_${uri.toString().hashCode().toLong().let { if (it < 0) -it else it }}"
+        val relPath = RockboxPathResolver.computeStorageRelativePath(uri.toString(), folderPath)
+        val fingerprint = AudioFingerprintUtil.generateDocumentFileFingerprint(context, file, effectiveDurationSec)
+
+        return Track(
+            id = id,
+            title = title,
+            artist = artist,
+            album = album,
+            albumArtist = embedded.albumArtist.orEmpty(),
+            genre = genre,
+            subGenre = "Club",
+            bpm = bpm,
+            musicalKey = musicalKey,
+            camelotKey = embedded.camelotKey.orEmpty(),
+            durationSeconds = effectiveDurationSec,
+            bitrateKbps = effectiveBitrateKbps,
+            format = format,
+            fileSizeMb = String.format(Locale.US, "%.2f", sizeMb).toDoubleOrNull() ?: sizeMb,
+            filePath = uri.toString(),
+            directoryPath = folderPath,
+            isOfflineReady = true,
+            syncState = SyncState.SYNCED,
+            platforms = listOf(MusicPlatform.LOCAL),
+            energyRating = 7,
+            hotCues = listOf(0, (effectiveDurationSec * 0.15).toInt(), (effectiveDurationSec * 0.45).toInt(), (effectiveDurationSec * 0.75).toInt()),
+            isAiTagged = false,
+            qualityRating = qualityRating,
+            dateAdded = file.lastModified().takeIf { it > 0 } ?: System.currentTimeMillis(),
+            crateId = "crate_all",
+            sourceId = sourceId,
+            trackNumber = embedded.trackNumber ?: 0,
+            discNumber = embedded.discNumber ?: 1,
+            releaseDate = embedded.releaseDate,
+            releaseYear = embedded.releaseYear,
+            recordLabel = embedded.recordLabel,
+            barcode = embedded.barcode,
+            isrc = embedded.isrc,
+            storageRelativePath = relPath,
+            contentFingerprint = fingerprint,
+            originalArtist = embedded.artist?.takeIf { !com.example.metadata.repair.ArtistStructureAnalyzer.isArtistMissingOrInvalid(it) },
+            resolvedArtist = null,
+            metadataSource = if (!com.example.metadata.repair.ArtistStructureAnalyzer.isArtistMissingOrInvalid(embedded.artist)) "EMBEDDED" else null,
+            metadataConfidence = if (!com.example.metadata.repair.ArtistStructureAnalyzer.isArtistMissingOrInvalid(embedded.artist)) 100.0 else 0.0
+        )
+    }
+
+    /**
+     * Checks if a SAF tree URI is still valid and accessible
+     */
+    fun isUriAccessible(context: Context, uri: Uri): Boolean {
+        return try {
+            val doc = DocumentFile.fromTreeUri(context, uri)
+            doc != null && doc.exists() && doc.canRead()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Retrieves all persisted SAF tree URIs with read or write permissions that are currently accessible.
+     * Essential for playback where read-only folder grants are completely sufficient.
+     */
+    fun getPersistedAccessibleFolderUris(context: Context): List<Uri> {
+        return try {
+            context.contentResolver.persistedUriPermissions
+                .filter { it.isReadPermission || it.isWritePermission }
+                .map { it.uri }
+                .filter { isUriAccessible(context, it) }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Retrieves all persisted SAF tree URIs with write permissions that are currently accessible.
+     */
+    fun getPersistedWriteFolderUris(context: Context): List<Uri> {
+        return try {
+            context.contentResolver.persistedUriPermissions
+                .filter { it.isWritePermission }
+                .map { it.uri }
+                .filter { isUriAccessible(context, it) }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Resolves a SAF DocumentFile for a track within any persisted SAF tree.
+     */
+    fun findDocumentForTrack(context: Context, track: Track): DocumentFile? {
+        val path = track.filePath
+        if (path.startsWith("content://")) {
+            try {
+                val doc = DocumentFile.fromSingleUri(context, Uri.parse(path))
+                if (doc != null && doc.exists()) return doc
+            } catch (_: Exception) {}
+        }
+        return findDocumentForPathOrName(context, path, track.storageRelativePath)
+    }
+
+    /**
+     * Finds a DocumentFile matching a filesystem path within any granted SAF directory tree.
+     */
+    fun findDocumentForPath(context: Context, fullPath: String): DocumentFile? {
+        return findDocumentForPathOrName(context, fullPath, "")
+    }
+
+    /**
+     * Finds a DocumentFile matching a filesystem path, file name, or storage relative path
+     * within any granted SAF directory tree.
+     */
+    fun findDocumentForPathOrName(
+        context: Context,
+        pathOrName: String,
+        storageRelativePath: String = ""
+    ): DocumentFile? {
+        val persistedTrees = getPersistedAccessibleFolderUris(context)
+        if (persistedTrees.isEmpty()) return null
+
+        val fileName = File(pathOrName).name.ifBlank { pathOrName }
+
+        for (treeUri in persistedTrees) {
+            val rootDoc = try { DocumentFile.fromTreeUri(context, treeUri) } catch (_: Exception) { null }
+            if (rootDoc == null || !rootDoc.exists() || !rootDoc.canRead()) continue
+
+            // 1. Try matching via storage relative path if provided
+            if (storageRelativePath.isNotBlank()) {
+                val doc = findDocumentByRelativePath(rootDoc, storageRelativePath)
+                if (doc != null && doc.exists()) return doc
+            }
+
+            // 2. Try relative path extracted from full filesystem path
+            val rootName = rootDoc.name.orEmpty()
+            if (rootName.isNotBlank() && pathOrName.contains(rootName)) {
+                val subPath = pathOrName.substringAfter(rootName).trimStart('/')
+                if (subPath.isNotBlank()) {
+                    val doc = findDocumentByRelativePath(rootDoc, subPath)
+                    if (doc != null && doc.exists()) return doc
+                }
+            }
+
+            // 3. Search direct and shallow subdirectories by file name
+            val docByName = findDocumentByName(rootDoc, fileName, maxDepth = 3)
+            if (docByName != null && docByName.exists()) return docByName
+        }
+
+        return null
+    }
+
+    /**
+     * Navigates down a DocumentFile tree hierarchy using a slash-separated relative path.
+     */
+    fun findDocumentByRelativePath(parent: DocumentFile, relativePath: String): DocumentFile? {
+        val segments = relativePath.split('/').filter { it.isNotBlank() }
+        var current: DocumentFile = parent
+        for (i in segments.indices) {
+            val segment = segments[i]
+            val next = current.findFile(segment) ?: return null
+            current = next
+        }
+        return current
+    }
+
+    /**
+     * Traverses child files and directories up to maxDepth looking for an exact file name.
+     */
+    fun findDocumentByName(parent: DocumentFile, fileName: String, maxDepth: Int = 3): DocumentFile? {
+        if (maxDepth < 0) return null
+        try {
+            val children = parent.listFiles()
+            // Direct child match first
+            for (child in children) {
+                if (child.isFile && child.name.equals(fileName, ignoreCase = true)) {
+                    return child
+                }
+            }
+            // Recursive match in subdirectories
+            for (child in children) {
+                if (child.isDirectory) {
+                    val found = findDocumentByName(child, fileName, maxDepth - 1)
+                    if (found != null) return found
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+}

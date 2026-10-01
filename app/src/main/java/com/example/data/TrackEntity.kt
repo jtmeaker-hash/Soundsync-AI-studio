@@ -1,0 +1,326 @@
+package com.example.data
+
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.example.model.AudioQualityRating
+import com.example.model.MusicPlatform
+import com.example.model.SyncState
+import com.example.model.Track
+
+@Entity(
+    tableName = "tracks",
+    indices = [
+        Index(value = ["contentFingerprint"]),
+        Index(value = ["filePath"]),
+        Index(value = ["crateId"]),
+        Index(value = ["dateAdded"]),
+        Index(value = ["analysisState"]),
+        Index(value = ["playabilityStatus"]),
+        Index(value = ["physicalMediaKey"]),
+        Index(value = ["mediaStoreId"]),
+        Index(value = ["title"]),
+        Index(value = ["artist"]),
+        Index(value = ["album"]),
+        Index(value = ["bpm"]),
+        Index(value = ["camelotKey"]),
+        Index(value = ["musicalKey"]),
+        Index(value = ["genre"]),
+        Index(value = ["metadataWriteState"])
+    ]
+)
+data class TrackEntity(
+    @PrimaryKey
+    val id: String,
+    val title: String,
+    val artist: String,
+    val album: String = "Single",
+    val genre: String = "DJ Library",
+    val subGenre: String = "Club",
+    val bpm: Double = 0.0,
+    val bpmConfidence: Double = 0.0,
+    val bpmAnalysisVersion: String? = null,
+    val bpmLastAnalyzed: Long? = null,
+    val musicalKey: String = "",
+    val camelotKey: String = "",
+    val keyConfidence: Double = 0.0,
+    val keyAnalysisVersion: String? = null,
+    val keyLastAnalyzed: Long? = null,
+    val durationSeconds: Int = 0,
+    val bitrateKbps: Int = 320,
+    val format: String = "MP3",
+    val fileSizeMb: Double = 0.0,
+    val filePath: String = "",
+    val isOfflineReady: Boolean = true,
+    val syncState: String = "LOCAL_ONLY", // from SyncState enum
+    val platformsString: String = "LOCAL", // comma separated platform names
+    val energyRating: Int = 7,
+    val hotCuesString: String = "0,32,64,128", // comma separated integers
+    val isAiTagged: Boolean = false,
+    val qualityRating: String = "TRUE_320", // from AudioQualityRating enum
+    val dateAdded: Long = System.currentTimeMillis(),
+    val crateId: String = "crate_all",
+    val trackNumber: Int = 0,
+    val discNumber: Int = 1,
+    val albumArtist: String = "",
+    val releaseDate: String? = null,
+    val releaseYear: Int? = null,
+    val recordLabel: String? = null,
+    val barcode: String? = null,
+    val isrc: String? = null,
+    val appleTrackId: Long? = null,
+    val appleCollectionId: Long? = null,
+    val appleArtistId: Long? = null,
+    val theAudioDbAlbumId: String? = null,
+    val theAudioDbArtistId: String? = null,
+    val artworkSource: String? = null,
+    val artworkCachePath: String? = null,
+    val metadataScanState: String = "NOT_SCANNED",
+    val metadataScanTimestamp: Long? = null,
+    val userConfirmedMetadata: Boolean = false,
+    val artworkUrl: String? = null,
+    val storageRelativePath: String = "",
+    val contentFingerprint: String = "",
+    val rating: Int = 0,
+    val customTags: String = "",
+    val notes: String = "",
+    val composer: String = "",
+    val isManualBpm: Boolean = false,
+    val isManualKey: Boolean = false,
+    val analysisState: String = "NOT_ANALYSED",
+    val analysisVersion: Int = 1,
+    val lastAnalysedAt: Long? = null,
+    val analysisFailureReason: String? = null,
+    val analysisRetryCount: Int = 0,
+    val fileModifiedTimestamp: Long = 0L,
+    val originalArtist: String? = null,
+    val resolvedArtist: String? = null,
+    val metadataSource: String? = null,
+    val metadataConfidence: Double = 0.0,
+    val fingerprintAlgorithm: String? = null,
+    val fingerprintTimestamp: Long? = null,
+    val metadataWriteState: String = "NOT_ANALYSED",
+    val playabilityStatus: String = "UNKNOWN",
+    val playbackErrorCode: String? = null,
+    val playbackErrorMessage: String? = null,
+    val lastPlaybackValidation: Long? = null,
+    val lastRepairAttempt: Long? = null,
+    val resolvedUri: String? = null,
+    val validationFileSize: Long = 0L,
+    val validationModifiedTimestamp: Long = 0L,
+    val physicalMediaKey: String = "",
+    val mediaStoreId: Long? = null,
+    val mediaStoreVolume: String? = null,
+    val fieldProvenanceJson: String = "{}"
+) {
+    fun toTrack(): Track {
+        val syncEnum = try { SyncState.valueOf(syncState) } catch (e: Exception) { SyncState.LOCAL_ONLY }
+        val qualityEnum = try { AudioQualityRating.valueOf(qualityRating) } catch (e: Exception) { AudioQualityRating.TRUE_320 }
+        val platformList = platformsString.split(",")
+            .filter { it.isNotBlank() }
+            .mapNotNull { name ->
+                try { MusicPlatform.valueOf(name.trim()) } catch (e: Exception) { null }
+            }
+        val cues = hotCuesString.split(",")
+            .filter { it.isNotBlank() }
+            .mapNotNull { it.trim().toIntOrNull() }
+
+        val dir = if (filePath.contains("/")) filePath.substringBeforeLast("/") else "/Music"
+        val resolvedStoragePath = if (storageRelativePath.isNotBlank()) {
+            storageRelativePath
+        } else {
+            val p = filePath.removePrefix("file://")
+            when {
+                p.contains("/storage/emulated/0/") -> p.substringAfter("/storage/emulated/0/").trimStart('/')
+                p.contains("/storage/") -> p.substringAfter("/storage/").substringAfter("/").trimStart('/')
+                p.startsWith("/") -> p.trimStart('/')
+                else -> p
+            }
+        }
+
+        return Track(
+            id = id,
+            title = title,
+            artist = artist,
+            album = album,
+            genre = genre,
+            subGenre = subGenre,
+            bpm = bpm,
+            bpmConfidence = bpmConfidence,
+            bpmAnalysisVersion = bpmAnalysisVersion,
+            bpmLastAnalyzed = bpmLastAnalyzed,
+            musicalKey = musicalKey,
+            camelotKey = camelotKey,
+            keyConfidence = keyConfidence,
+            keyAnalysisVersion = keyAnalysisVersion,
+            keyLastAnalyzed = keyLastAnalyzed,
+            durationSeconds = durationSeconds,
+            bitrateKbps = bitrateKbps,
+            format = format,
+            fileSizeMb = fileSizeMb,
+            filePath = filePath,
+            directoryPath = dir,
+            isOfflineReady = isOfflineReady,
+            syncState = syncEnum,
+            platforms = if (platformList.isEmpty()) listOf(MusicPlatform.LOCAL) else platformList,
+            energyRating = energyRating,
+            hotCues = if (cues.isEmpty()) listOf(0, 32, 64, 128) else cues,
+            isAiTagged = isAiTagged,
+            qualityRating = qualityEnum,
+            dateAdded = dateAdded,
+            crateId = crateId,
+            sourceId = "internal",
+            trackNumber = trackNumber,
+            discNumber = discNumber,
+            albumArtist = albumArtist,
+            releaseDate = releaseDate,
+            releaseYear = releaseYear,
+            recordLabel = recordLabel,
+            barcode = barcode,
+            isrc = isrc,
+            appleTrackId = appleTrackId,
+            appleCollectionId = appleCollectionId,
+            appleArtistId = appleArtistId,
+            theAudioDbAlbumId = theAudioDbAlbumId,
+            theAudioDbArtistId = theAudioDbArtistId,
+            artworkSource = artworkSource,
+            artworkCachePath = artworkCachePath,
+            metadataScanState = metadataScanState,
+            metadataScanTimestamp = metadataScanTimestamp,
+            userConfirmedMetadata = userConfirmedMetadata,
+            artworkUrl = artworkUrl,
+            storageRelativePath = resolvedStoragePath,
+            contentFingerprint = contentFingerprint,
+            rating = rating,
+            customTags = customTags,
+            notes = notes,
+            composer = composer,
+            isManualBpm = isManualBpm,
+            isManualKey = isManualKey,
+            analysisState = try { com.example.model.AnalysisState.valueOf(analysisState) } catch (e: Exception) { com.example.model.AnalysisState.NOT_ANALYSED },
+            analysisVersion = analysisVersion,
+            lastAnalysedAt = lastAnalysedAt,
+            analysisFailureReason = analysisFailureReason,
+            analysisRetryCount = analysisRetryCount,
+            fileModifiedTimestamp = fileModifiedTimestamp,
+            originalArtist = originalArtist,
+            resolvedArtist = resolvedArtist,
+            metadataSource = metadataSource,
+            metadataConfidence = metadataConfidence,
+            fingerprintAlgorithm = fingerprintAlgorithm,
+            fingerprintTimestamp = fingerprintTimestamp,
+            metadataWriteState = metadataWriteState,
+            playabilityStatus = playabilityStatus,
+            playbackErrorCode = playbackErrorCode,
+            playbackErrorMessage = playbackErrorMessage,
+            lastPlaybackValidation = lastPlaybackValidation,
+            lastRepairAttempt = lastRepairAttempt,
+            resolvedUri = resolvedUri,
+            validationFileSize = validationFileSize,
+            validationModifiedTimestamp = validationModifiedTimestamp,
+            physicalMediaKey = physicalMediaKey,
+            mediaStoreId = mediaStoreId,
+            mediaStoreVolume = mediaStoreVolume,
+            fieldProvenanceJson = fieldProvenanceJson
+        )
+    }
+
+    companion object {
+        fun fromTrack(track: Track): TrackEntity {
+            return TrackEntity(
+                id = track.id,
+                title = track.title,
+                artist = track.artist,
+                album = track.album,
+                genre = track.genre,
+                subGenre = track.subGenre,
+                bpm = track.bpm,
+                bpmConfidence = track.bpmConfidence,
+                bpmAnalysisVersion = track.bpmAnalysisVersion,
+                bpmLastAnalyzed = track.bpmLastAnalyzed,
+                musicalKey = track.musicalKey,
+                camelotKey = track.camelotKey,
+                keyConfidence = track.keyConfidence,
+                keyAnalysisVersion = track.keyAnalysisVersion,
+                keyLastAnalyzed = track.keyLastAnalyzed,
+                durationSeconds = track.durationSeconds,
+                bitrateKbps = track.bitrateKbps,
+                format = track.format,
+                fileSizeMb = track.fileSizeMb,
+                filePath = track.filePath,
+                isOfflineReady = track.isOfflineReady,
+                syncState = track.syncState.name,
+                platformsString = track.platforms.joinToString(",") { it.name },
+                energyRating = track.energyRating,
+                hotCuesString = track.hotCues.joinToString(","),
+                isAiTagged = track.isAiTagged,
+                qualityRating = track.qualityRating.name,
+                dateAdded = track.dateAdded,
+                crateId = track.crateId,
+                trackNumber = track.trackNumber,
+                discNumber = track.discNumber,
+                albumArtist = track.albumArtist,
+                releaseDate = track.releaseDate,
+                releaseYear = track.releaseYear,
+                recordLabel = track.recordLabel,
+                barcode = track.barcode,
+                isrc = track.isrc,
+                appleTrackId = track.appleTrackId,
+                appleCollectionId = track.appleCollectionId,
+                appleArtistId = track.appleArtistId,
+                theAudioDbAlbumId = track.theAudioDbAlbumId,
+                theAudioDbArtistId = track.theAudioDbArtistId,
+                artworkSource = track.artworkSource,
+                artworkCachePath = track.artworkCachePath,
+                metadataScanState = track.metadataScanState,
+                metadataScanTimestamp = track.metadataScanTimestamp,
+                userConfirmedMetadata = track.userConfirmedMetadata,
+                artworkUrl = track.artworkUrl,
+                storageRelativePath = track.storageRelativePath,
+                contentFingerprint = track.contentFingerprint,
+                rating = track.rating,
+                customTags = track.customTags,
+                notes = track.notes,
+                composer = track.composer,
+                isManualBpm = track.isManualBpm,
+                isManualKey = track.isManualKey,
+                analysisState = track.analysisState.name,
+                analysisVersion = track.analysisVersion,
+                lastAnalysedAt = track.lastAnalysedAt,
+                analysisFailureReason = track.analysisFailureReason,
+                analysisRetryCount = track.analysisRetryCount,
+                fileModifiedTimestamp = track.fileModifiedTimestamp,
+                originalArtist = track.originalArtist,
+                resolvedArtist = track.resolvedArtist,
+                metadataSource = track.metadataSource,
+                metadataConfidence = track.metadataConfidence,
+                fingerprintAlgorithm = track.fingerprintAlgorithm,
+                fingerprintTimestamp = track.fingerprintTimestamp,
+                metadataWriteState = track.metadataWriteState,
+                playabilityStatus = track.playabilityStatus,
+                playbackErrorCode = track.playbackErrorCode,
+                playbackErrorMessage = track.playbackErrorMessage,
+                lastPlaybackValidation = track.lastPlaybackValidation,
+                lastRepairAttempt = track.lastRepairAttempt,
+                resolvedUri = track.resolvedUri,
+                validationFileSize = track.validationFileSize,
+                validationModifiedTimestamp = track.validationModifiedTimestamp,
+                physicalMediaKey = track.physicalMediaKey,
+                mediaStoreId = track.mediaStoreId,
+                mediaStoreVolume = track.mediaStoreVolume,
+                fieldProvenanceJson = track.fieldProvenanceJson
+            )
+        }
+    }
+}
+
+@Entity(tableName = "crates")
+data class CrateEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val description: String,
+    val colorHex: Long,
+    val minBpm: Double,
+    val maxBpm: Double
+)

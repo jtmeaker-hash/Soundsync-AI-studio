@@ -1,0 +1,1899 @@
+package com.example.ui.library
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import com.example.ui.components.LibrarySearchBar
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Queue
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.Warning
+import com.example.ui.components.TrackGridView
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
+import com.example.model.AudioQualityRating
+import com.example.model.CoverArtFilter
+import com.example.model.Track
+import com.example.ui.components.MetadataProvenanceBadge
+import com.example.ui.theme.SoundSyncTheme
+import com.example.ui.theme.LocalLibraryDensity
+import com.example.ui.theme.ProLibraryDensity
+import com.example.util.AlbumArtHelper
+import android.util.Log
+import java.io.File
+import java.util.Locale
+
+enum class SongSortMode(val label: String) {
+    TITLE_ASC("Title (A-Z)"),
+    TITLE_DESC("Title (Z-A)"),
+    ARTIST_ASC("Artist (A-Z)"),
+    ARTIST_DESC("Artist (Z-A)"),
+    ALBUM_ASC("Album (A-Z)"),
+    ALBUM_DESC("Album (Z-A)"),
+    BPM_DESC("BPM (High-Low)"),
+    BPM_ASC("BPM (Low-High)"),
+    KEY_ASC("Key (A-Z)"),
+    KEY_DESC("Key (Z-A)"),
+    DURATION_DESC("Duration (Long-Short)"),
+    DURATION_ASC("Duration (Short-Long)"),
+    DATE_DESC("Recently Added"),
+    DATE_ASC("Oldest Added"),
+    FOLDER_ASC("Folder / File Path"),
+    FOLDER_DESC("Folder / File Path (Z-A)");
+
+    fun sort(tracks: List<Track>): List<Track> {
+        return when (this) {
+            TITLE_ASC -> tracks.sortedBy { it.title.lowercase() }
+            TITLE_DESC -> tracks.sortedByDescending { it.title.lowercase() }
+            ARTIST_ASC -> tracks.sortedBy { it.artist.lowercase() }
+            ARTIST_DESC -> tracks.sortedByDescending { it.artist.lowercase() }
+            ALBUM_ASC -> tracks.sortedBy { it.album.lowercase() }
+            ALBUM_DESC -> tracks.sortedByDescending { it.album.lowercase() }
+            BPM_DESC -> tracks.sortedByDescending { it.bpm }
+            BPM_ASC -> tracks.sortedBy { it.bpm }
+            KEY_ASC -> tracks.sortedBy { it.camelotKey.ifBlank { it.musicalKey }.lowercase() }
+            KEY_DESC -> tracks.sortedByDescending { it.camelotKey.ifBlank { it.musicalKey }.lowercase() }
+            DURATION_DESC -> tracks.sortedByDescending { it.durationSeconds }
+            DURATION_ASC -> tracks.sortedBy { it.durationSeconds }
+            DATE_DESC -> tracks.sortedByDescending { it.dateAdded }
+            DATE_ASC -> tracks.sortedBy { it.dateAdded }
+            FOLDER_ASC -> tracks.sortedBy { it.filePath.lowercase() }
+            FOLDER_DESC -> tracks.sortedByDescending { it.filePath.lowercase() }
+        }
+    }
+}
+
+@Composable
+fun SongsScreen(
+    tracks: List<Track>,
+    currentPlayingTrack: Track?,
+    isPlaying: Boolean,
+    hideUnavailableTracks: Boolean = false,
+    onToggleHideUnavailable: () -> Unit = {},
+    coverArtFilter: CoverArtFilter = CoverArtFilter.ALL,
+    onSetCoverArtFilter: (CoverArtFilter) -> Unit = {},
+    isTrackGridView: Boolean = false,
+    onToggleTrackGridView: () -> Unit = {},
+    onPlayTrack: (Track) -> Unit,
+    onPlayAll: (List<Track>, Boolean) -> Unit,
+    onAddToPlaylist: (Track) -> Unit,
+    onQueueTrack: (Track, Boolean) -> Unit,
+    onInspectProperties: (Track) -> Unit,
+    onInspectSpectrogram: (Track) -> Unit,
+    onStartScan: () -> Unit,
+    onBulkEditTracks: ((List<Track>) -> Unit)? = null,
+    onMixWithThis: ((Track) -> Unit)? = null,
+    onInspectQuality: ((Track) -> Unit)? = null,
+    onOpenLyrics: ((Track) -> Unit)? = null,
+    onOpenTrackIntelligence: ((Track) -> Unit)? = null,
+    onOpenPlaybackIssueSheet: ((Track) -> Unit)? = null,
+    onOpenPlaybackIssuesManager: (() -> Unit)? = null,
+    playbackIssuesCount: Int = 0,
+    isLibraryLoading: Boolean = false
+) {
+    val context = LocalContext.current
+    val theme = SoundSyncTheme.current
+    var searchQuery by remember { mutableStateOf("") }
+    var debouncedQuery by remember { mutableStateOf("") }
+    
+    androidx.compose.runtime.LaunchedEffect(searchQuery) {
+        kotlinx.coroutines.delay(300L)
+        debouncedQuery = searchQuery
+    }
+    var sortMode by remember { mutableStateOf(SongSortMode.TITLE_ASC) }
+    var showSortMenu by remember { mutableStateOf(false) }
+    var selectedTrackIds by remember { mutableStateOf(setOf<String>()) }
+
+    var localCoverArtFilter by remember { mutableStateOf(coverArtFilter) }
+    LaunchedEffect(coverArtFilter) {
+        localCoverArtFilter = coverArtFilter
+    }
+    val activeCoverArtFilter = localCoverArtFilter
+    fun updateCoverArtFilter(newFilter: CoverArtFilter) {
+        localCoverArtFilter = newFilter
+        onSetCoverArtFilter(newFilter)
+    }
+
+    var showCoverArtFilterMenu by remember { mutableStateOf(false) }
+
+    var artworkVersion by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        AlbumArtHelper.artworkInvalidationFlow.collect {
+            artworkVersion++
+        }
+    }
+
+    val noCoverArtCount = remember(tracks, artworkVersion) {
+        tracks.count { com.example.metadata.artwork.CanonicalArtworkDetector.isMissingArtwork(context, it) }
+    }
+    val hasCoverArtCount = remember(tracks, noCoverArtCount) {
+        (tracks.size - noCoverArtCount).coerceAtLeast(0)
+    }
+
+    var filteredTracks by remember { mutableStateOf(emptyList<Track>()) }
+    LaunchedEffect(tracks, debouncedQuery, sortMode, hideUnavailableTracks, activeCoverArtFilter, artworkVersion) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val q = debouncedQuery.trim().lowercase()
+            val base = tracks.filter { track ->
+                val matchesAvailability = !hideUnavailableTracks || track.isAvailable
+                val matchesCoverArt = when (activeCoverArtFilter) {
+                    CoverArtFilter.ALL -> true
+                    CoverArtFilter.NO_COVER_ART, CoverArtFilter.NO_COVER -> {
+                        val missing = com.example.metadata.artwork.CanonicalArtworkDetector.isMissingArtwork(context, track)
+                        if (searchQuery.isBlank()) {
+                            try {
+                                Log.d(
+                                    "ArtworkFilter",
+                                    "[ArtworkFilter] title=${track.title} id=${track.id} hasRealArtwork=${!missing} source=${track.artworkSource ?: "NONE"} artworkUri=${track.artworkUrl ?: track.artworkCachePath ?: "NONE"} includedInNoArtworkFilter=$missing"
+                                )
+                            } catch (_: Throwable) {}
+                        }
+                        missing
+                    }
+                    CoverArtFilter.HAS_COVER_ART, CoverArtFilter.HAS_COVER -> {
+                        com.example.metadata.artwork.CanonicalArtworkDetector.hasArtwork(context, track)
+                    }
+                }
+                val matchesQuery = q.isBlank() ||
+                    track.title.lowercase().contains(q) ||
+                    track.artist.lowercase().contains(q) ||
+                    track.album.lowercase().contains(q) ||
+                    track.format.lowercase().contains(q) ||
+                    track.genre.lowercase().contains(q) ||
+                    track.filePath.lowercase().contains(q)
+    
+                matchesAvailability && matchesCoverArt && matchesQuery
+            }
+    
+            filteredTracks = sortMode.sort(base)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("songs_screen")
+    ) {
+        // Multi-Select Header Toolbar
+        if (selectedTrackIds.isNotEmpty()) {
+            Surface(
+                color = theme.surfaceRaised,
+                border = androidx.compose.foundation.BorderStroke(1.dp, theme.accent),
+                shape = RoundedCornerShape(theme.cornerMedium),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconButton(onClick = { selectedTrackIds = emptySet() }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear Selection", tint = theme.textPrimary, modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            text = "${selectedTrackIds.size} selected",
+                            color = theme.accent,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        TextButton(
+                            onClick = {
+                                if (selectedTrackIds.size == filteredTracks.size) {
+                                    selectedTrackIds = emptySet()
+                                } else {
+                                    selectedTrackIds = filteredTracks.map { it.id }.toSet()
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (selectedTrackIds.size == filteredTracks.size) "Deselect All" else "Select All",
+                                fontSize = 11.sp,
+                                color = theme.textPrimary
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                val selectedList = filteredTracks.filter { it.id in selectedTrackIds }
+                                onBulkEditTracks?.invoke(selectedList)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = theme.accent,
+                                contentColor = theme.onAccent
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(theme.cornerSmall)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, tint = theme.onAccent, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Bulk Edit", color = theme.onAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Search & Filter Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            LibrarySearchBar(
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholderText = "Search songs, artists, albums...",
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                testTag = "songs_search_input"
+            )
+
+            IconButton(
+                onClick = onToggleTrackGridView,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(theme.cornerSmall))
+                    .background(theme.surfaceRaised)
+                    .border(1.dp, theme.divider, RoundedCornerShape(theme.cornerSmall))
+                    .testTag("songs_view_mode_toggle")
+            ) {
+                Icon(
+                    imageVector = if (isTrackGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                    contentDescription = if (isTrackGridView) "Switch to List View" else "Switch to Grid View",
+                    tint = if (isTrackGridView) theme.accent else theme.textSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Box {
+                IconButton(
+                    onClick = { showSortMenu = true },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(theme.cornerSmall))
+                        .background(theme.surfaceRaised)
+                        .border(1.dp, theme.divider, RoundedCornerShape(theme.cornerSmall))
+                        .testTag("songs_sort_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = "Sort Songs",
+                        tint = theme.accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false },
+                    modifier = Modifier.background(theme.surfaceRaised)
+                ) {
+                    SongSortMode.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = mode.label,
+                                    color = if (sortMode == mode) theme.accent else theme.textPrimary,
+                                    fontWeight = if (sortMode == mode) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            onClick = {
+                                sortMode = mode
+                                showSortMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Action Toolbar (Play All, Shuffle All, Count, Filter)
+        if (tracks.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = if (activeCoverArtFilter == CoverArtFilter.ALL && searchQuery.isBlank() && !hideUnavailableTracks) {
+                            "${filteredTracks.size} tracks"
+                        } else {
+                            "${filteredTracks.size} of ${tracks.size} tracks"
+                        },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = theme.textSecondary
+                    )
+
+                    FilterChip(
+                        selected = hideUnavailableTracks,
+                        onClick = onToggleHideUnavailable,
+                        label = {
+                            Text(
+                                text = if (hideUnavailableTracks) "Playable Only" else "Show All",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (hideUnavailableTracks) Icons.Default.Check else Icons.Default.FilterList,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = theme.surfaceRaised,
+                            labelColor = theme.textSecondary,
+                            selectedContainerColor = theme.accent.copy(alpha = 0.2f),
+                            selectedLabelColor = theme.accent,
+                            selectedLeadingIconColor = theme.accent
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = hideUnavailableTracks,
+                            borderColor = theme.divider,
+                            selectedBorderColor = theme.accent,
+                            borderWidth = 1.dp
+                        ),
+                        shape = RoundedCornerShape(theme.cornerSmall),
+                        modifier = Modifier.height(30.dp).testTag("filter_unavailable_tracks_chip")
+                    )
+
+                    // Cover Art Filter Chip with Dropdown Menu
+                    Box {
+                        FilterChip(
+                            selected = activeCoverArtFilter != CoverArtFilter.ALL,
+                            onClick = { showCoverArtFilterMenu = true },
+                            label = {
+                                Text(
+                                    text = when (activeCoverArtFilter) {
+                                        CoverArtFilter.ALL -> "Artwork"
+                                        CoverArtFilter.NO_COVER_ART -> "No Cover Art ($noCoverArtCount)"
+                                        CoverArtFilter.HAS_COVER_ART -> "Has Cover Art ($hasCoverArtCount)"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = when (activeCoverArtFilter) {
+                                        CoverArtFilter.ALL -> Icons.Default.Image
+                                        CoverArtFilter.NO_COVER_ART -> Icons.Default.BrokenImage
+                                        CoverArtFilter.HAS_COVER_ART -> Icons.Default.Image
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Cover Art Filter Options",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = theme.surfaceRaised,
+                                labelColor = theme.textSecondary,
+                                selectedContainerColor = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART)
+                                    Color(0xFFFF9800).copy(alpha = 0.2f) else theme.accent.copy(alpha = 0.2f),
+                                selectedLabelColor = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART)
+                                    Color(0xFFFFB74D) else theme.accent,
+                                selectedLeadingIconColor = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART)
+                                    Color(0xFFFFB74D) else theme.accent,
+                                selectedTrailingIconColor = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART)
+                                    Color(0xFFFFB74D) else theme.accent
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = activeCoverArtFilter != CoverArtFilter.ALL,
+                                borderColor = theme.divider,
+                                selectedBorderColor = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART)
+                                    Color(0xFFFF9800) else theme.accent,
+                                borderWidth = 1.dp
+                            ),
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            modifier = Modifier.height(30.dp).testTag("filter_cover_art_chip")
+                        )
+
+                        DropdownMenu(
+                            expanded = showCoverArtFilterMenu,
+                            onDismissRequest = { showCoverArtFilterMenu = false },
+                            modifier = Modifier.background(theme.surfaceRaised).testTag("cover_art_filter_menu")
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "All Tracks",
+                                            fontWeight = if (activeCoverArtFilter == CoverArtFilter.ALL) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text("${tracks.size}", color = theme.textMuted, fontSize = 12.sp)
+                                    }
+                                },
+                                leadingIcon = {
+                                    if (activeCoverArtFilter == CoverArtFilter.ALL) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = theme.accent, modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Spacer(modifier = Modifier.size(16.dp))
+                                    }
+                                },
+                                onClick = {
+                                    showCoverArtFilterMenu = false
+                                    updateCoverArtFilter(CoverArtFilter.ALL)
+                                },
+                                modifier = Modifier.testTag("filter_menu_all_tracks")
+                            )
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "No Cover Art",
+                                            fontWeight = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART) Color(0xFFFFB74D) else theme.textPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            "$noCoverArtCount",
+                                            color = if (noCoverArtCount > 0) Color(0xFFFFB74D) else theme.textMuted,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                },
+                                leadingIcon = {
+                                    if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFFFFB74D), modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Spacer(modifier = Modifier.size(16.dp))
+                                    }
+                                },
+                                onClick = {
+                                    showCoverArtFilterMenu = false
+                                    updateCoverArtFilter(CoverArtFilter.NO_COVER_ART)
+                                },
+                                modifier = Modifier.testTag("filter_menu_no_cover_art")
+                            )
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "Has Cover Art",
+                                            fontWeight = if (activeCoverArtFilter == CoverArtFilter.HAS_COVER_ART) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text("$hasCoverArtCount", color = theme.textMuted, fontSize = 12.sp)
+                                    }
+                                },
+                                leadingIcon = {
+                                    if (activeCoverArtFilter == CoverArtFilter.HAS_COVER_ART) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = theme.accent, modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Spacer(modifier = Modifier.size(16.dp))
+                                    }
+                                },
+                                onClick = {
+                                    showCoverArtFilterMenu = false
+                                    updateCoverArtFilter(CoverArtFilter.HAS_COVER_ART)
+                                },
+                                modifier = Modifier.testTag("filter_menu_has_cover_art")
+                            )
+                        }
+                    }
+                }
+
+                if (filteredTracks.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onPlayAll(filteredTracks, false) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = theme.accent,
+                                contentColor = theme.onAccent
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            modifier = Modifier
+                                .height(34.dp)
+                                .testTag("play_all_songs_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Play All", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { onPlayAll(filteredTracks, true) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = theme.surfaceRaised,
+                                contentColor = theme.textPrimary
+                            ),
+                            border = BorderStroke(1.dp, theme.divider),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            modifier = Modifier
+                                .height(34.dp)
+                                .testTag("shuffle_all_songs_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shuffle,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Shuffle", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Informational banner when filtering for tracks missing cover art
+        if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART && tracks.isNotEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                color = Color(0xFFFF9800).copy(alpha = 0.12f),
+                shape = RoundedCornerShape(theme.cornerSmall),
+                border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.35f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BrokenImage,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB74D),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (noCoverArtCount > 0)
+                                "Showing $noCoverArtCount tracks with no cover art. Open ⋮ > Track Inspector > Find Cover to fix."
+                            else
+                                "All tracks in this view have cover artwork.",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFFFFE0B2),
+                            maxLines = 2
+                        )
+                    }
+                    TextButton(
+                        onClick = { updateCoverArtFilter(CoverArtFilter.ALL) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text("Clear", color = Color(0xFFFFB74D), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Playback Issues Alert Banner
+        if (playbackIssuesCount > 0) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(theme.cornerSmall)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "$playbackIssuesCount track(s) cannot be played",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { onOpenPlaybackIssuesManager?.invoke() },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Review & Repair",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+
+        // Track List / Empty State
+        if (filteredTracks.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLibraryLoading) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            color = theme.accent,
+                            modifier = Modifier.size(40.dp),
+                            strokeWidth = 3.dp
+                        )
+                        Text(
+                            text = "Loading your music...",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = theme.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART) Icons.Default.CheckCircle else Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = if (activeCoverArtFilter == CoverArtFilter.NO_COVER_ART) Color(0xFF00E676) else theme.textMuted,
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Text(
+                            text = when {
+                                activeCoverArtFilter == CoverArtFilter.NO_COVER_ART && searchQuery.isNotBlank() ->
+                                    "No tracks missing cover art match '$searchQuery'"
+                                activeCoverArtFilter == CoverArtFilter.NO_COVER_ART ->
+                                    "All indexed tracks have usable cover artwork!"
+                                activeCoverArtFilter == CoverArtFilter.HAS_COVER_ART ->
+                                    "No tracks with cover art found"
+                                searchQuery.isNotBlank() ->
+                                    "No songs match '$searchQuery'"
+                                else ->
+                                    "No local tracks indexed yet"
+                            },
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = theme.textSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                        if (activeCoverArtFilter != CoverArtFilter.ALL) {
+                            Button(
+                                onClick = { updateCoverArtFilter(CoverArtFilter.ALL) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = theme.surfaceRaised,
+                                    contentColor = theme.accent
+                                ),
+                                border = BorderStroke(1.dp, theme.divider),
+                                shape = RoundedCornerShape(theme.cornerSmall),
+                                modifier = Modifier.testTag("clear_cover_art_filter_button")
+                            ) {
+                                Text("Show All Tracks", fontWeight = FontWeight.Bold)
+                            }
+                        } else if (searchQuery.isBlank()) {
+                            Button(
+                                onClick = onStartScan,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = theme.accent,
+                                    contentColor = theme.onAccent
+                                ),
+                                shape = RoundedCornerShape(theme.cornerSmall),
+                                modifier = Modifier.testTag("empty_scan_button")
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Scan Device Storage", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (isTrackGridView) {
+            TrackGridView(
+                tracks = filteredTracks,
+                currentPlayingTrack = currentPlayingTrack,
+                isPlaying = isPlaying,
+                isSelectionMode = selectedTrackIds.isNotEmpty(),
+                selectedTrackIds = selectedTrackIds,
+                onToggleSelection = { track ->
+                    selectedTrackIds = if (selectedTrackIds.contains(track.id)) {
+                        selectedTrackIds - track.id
+                    } else {
+                        selectedTrackIds + track.id
+                    }
+                },
+                onPlayTrack = onPlayTrack,
+                onAddToPlaylist = onAddToPlaylist,
+                onQueueTrack = onQueueTrack,
+                onInspectProperties = onInspectProperties,
+                onInspectSpectrogram = onInspectSpectrogram,
+                onMixWithThis = onMixWithThis,
+                onInspectQuality = onInspectQuality,
+                onOpenLyrics = onOpenLyrics,
+                onOpenTrackIntelligence = onOpenTrackIntelligence,
+                onOpenPlaybackIssueSheet = onOpenPlaybackIssueSheet,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+        } else {
+            val isPro = SoundSyncTheme.isPro
+            if (isPro) {
+                ProSongsTableHeader(
+                    sortMode = sortMode,
+                    onSortChange = { sortMode = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = if (isPro) 4.dp else 12.dp),
+                verticalArrangement = if (isPro) Arrangement.spacedBy(0.dp) else Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(bottom = 96.dp)
+            ) {
+                itemsIndexed(filteredTracks, key = { _, track -> track.id }, contentType = { _, _ -> "track" }) { index, track ->
+                    val isSelected = selectedTrackIds.contains(track.id)
+                    SongTrackRow(
+                        track = track,
+                        index = index,
+                        isCurrent = currentPlayingTrack?.id == track.id,
+                        isPlaying = isPlaying && currentPlayingTrack?.id == track.id,
+                        isSelectionMode = selectedTrackIds.isNotEmpty(),
+                        isSelected = isSelected,
+                        onToggleSelection = {
+                            selectedTrackIds = if (isSelected) {
+                                selectedTrackIds - track.id
+                            } else {
+                                selectedTrackIds + track.id
+                            }
+                        },
+                        onClick = {
+                            if (selectedTrackIds.isNotEmpty()) {
+                                selectedTrackIds = if (isSelected) selectedTrackIds - track.id else selectedTrackIds + track.id
+                            } else {
+                                onPlayTrack(track)
+                            }
+                        },
+                        onAddToPlaylist = { onAddToPlaylist(track) },
+                        onQueueTrack = { playNext -> onQueueTrack(track, playNext) },
+                        onInspectProperties = { onInspectProperties(track) },
+                        onInspectSpectrogram = { onInspectSpectrogram(track) },
+                        onMixWithThis = onMixWithThis?.let { fn -> { fn(track) } },
+                        onInspectQuality = onInspectQuality?.let { fn -> { fn(track) } },
+                        onOpenLyrics = onOpenLyrics?.let { fn -> { fn(track) } },
+                        onOpenTrackIntelligence = onOpenTrackIntelligence?.let { fn -> { fn(track) } },
+                        onOpenPlaybackIssueSheet = onOpenPlaybackIssueSheet
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@Composable
+fun SongTrackRow(
+    track: Track,
+    index: Int? = null,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelection: () -> Unit = {},
+    onClick: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onQueueTrack: (playNext: Boolean) -> Unit,
+    onInspectProperties: () -> Unit,
+    onInspectSpectrogram: () -> Unit,
+    onMixWithThis: (() -> Unit)? = null,
+    onInspectQuality: (() -> Unit)? = null,
+    onOpenLyrics: (() -> Unit)? = null,
+    onOpenTrackIntelligence: (() -> Unit)? = null,
+    onOpenPlaybackIssueSheet: ((Track) -> Unit)? = null
+) {
+    if (SoundSyncTheme.isPro) {
+        ProSongTrackRow(
+            track = track,
+            index = index,
+            isCurrent = isCurrent,
+            isPlaying = isPlaying,
+            isSelectionMode = isSelectionMode,
+            isSelected = isSelected,
+            onToggleSelection = onToggleSelection,
+            onClick = onClick,
+            onAddToPlaylist = onAddToPlaylist,
+            onQueueTrack = onQueueTrack,
+            onInspectProperties = onInspectProperties,
+            onInspectSpectrogram = onInspectSpectrogram,
+            onMixWithThis = onMixWithThis,
+            onInspectQuality = onInspectQuality,
+            onOpenLyrics = onOpenLyrics,
+            onOpenTrackIntelligence = onOpenTrackIntelligence,
+            onOpenPlaybackIssueSheet = onOpenPlaybackIssueSheet
+        )
+        return
+    }
+
+    val theme = SoundSyncTheme.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    val formattedDuration = remember(track.durationSeconds) {
+        val min = track.durationSeconds / 60
+        val sec = track.durationSeconds % 60
+        String.format("%d:%02d", min, sec)
+    }
+
+    val isAvailable = track.isAvailable
+
+    Surface(
+        shape = RoundedCornerShape(theme.cornerSmall),
+        color = if (isSelected) theme.selectedSurface
+                else if (isCurrent) theme.playingSurface
+                else theme.surface.copy(alpha = if (isAvailable) 1f else 0.45f),
+        border = androidx.compose.foundation.BorderStroke(
+            if (isSelected) 1.5.dp else 1.dp,
+            if (isSelected) theme.accent
+            else if (isCurrent) theme.accent.copy(alpha = 0.5f)
+            else theme.divider.copy(alpha = if (isAvailable) 0.8f else 0.3f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    if (isSelectionMode) {
+                        onToggleSelection()
+                    } else {
+                        onToggleSelection()
+                    }
+                }
+            )
+            .testTag("song_track_row_${track.id}")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Multi-select Checkbox
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelection() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = theme.accent,
+                        checkmarkColor = theme.onAccent,
+                        uncheckedColor = theme.textMuted
+                    ),
+                    modifier = Modifier.padding(end = 6.dp)
+                )
+            }
+            // Artwork / Format Icon
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(theme.cornerSmall))
+                    .background(
+                        if (isCurrent) theme.accent.copy(alpha = 0.15f)
+                        else theme.surfaceRaised
+                    )
+                    .border(0.5.dp, theme.divider, RoundedCornerShape(theme.cornerSmall)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!isAvailable) {
+                    Icon(
+                        imageVector = Icons.Default.CloudOff,
+                        contentDescription = "Disconnected",
+                        tint = theme.textMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else if (isCurrent) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Equalizer else Icons.Default.PlayArrow,
+                        contentDescription = "Playing",
+                        tint = theme.accent,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = track.format,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (track.qualityRating.isLossless) Color(0xFF00E676) else theme.accent,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        if (track.bitrateKbps > 0) {
+                            Text(
+                                text = "${track.bitrateKbps}k",
+                                fontSize = 9.sp,
+                                color = theme.textMuted,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Metadata Column
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = track.title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (!isAvailable) theme.textDisabled else if (isCurrent) theme.accent else theme.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = track.artist,
+                        fontSize = 12.sp,
+                        color = if (!isAvailable) theme.textDisabled else theme.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    if (track.album.isNotBlank() && track.album != "Single") {
+                        Text(text = "•", fontSize = 10.sp, color = theme.textMuted)
+                        Text(
+                            text = track.album,
+                            fontSize = 11.sp,
+                            color = theme.textMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // DJ Pills (BPM, Key, Quality, Disconnected, Provenance)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (!isAvailable) {
+                        Surface(
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            color = theme.surfaceRaised.copy(alpha = 0.7f),
+                            border = BorderStroke(0.5.dp, theme.divider)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudOff,
+                                    contentDescription = null,
+                                    tint = theme.textMuted,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "DISCONNECTED",
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = theme.textMuted,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+
+                    if (track.bpm > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            color = theme.surfaceRaised,
+                            border = BorderStroke(0.5.dp, theme.divider)
+                        ) {
+                            Text(
+                                text = "${track.bpm.toInt()} BPM",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.accent,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
+                    if (track.musicalKey.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            color = theme.surfaceRaised,
+                            border = BorderStroke(0.5.dp, theme.divider)
+                        ) {
+                            Text(
+                                text = track.camelotKey.ifBlank { track.musicalKey },
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.textPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
+                    if (track.qualityRating == AudioQualityRating.TRUE_LOSSLESS) {
+                        Surface(
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            color = theme.surfaceRaised,
+                            border = BorderStroke(0.5.dp, Color(0xFF00E676).copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "LOSSLESS",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF00E676),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
+                    if (track.hasPlaybackIssue) {
+                        Surface(
+                            shape = RoundedCornerShape(theme.cornerSmall),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.error)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(9.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = track.playability.displayName,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    MetadataProvenanceBadge(track = track, compact = true)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Duration & Menu
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formattedDuration,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.textSecondary,
+                    maxLines = 1
+                )
+
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.testTag("track_menu_button_${track.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = theme.textSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(theme.surfaceRaised)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add to Playlist", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = theme.accent) },
+                            onClick = {
+                                showMenu = false
+                                onAddToPlaylist()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Play Next", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null, tint = theme.accent) },
+                            onClick = {
+                                showMenu = false
+                                onQueueTrack(true)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to Queue", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Queue, contentDescription = null, tint = theme.textSecondary) },
+                            onClick = {
+                                showMenu = false
+                                onQueueTrack(false)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Analyse Spectrogram", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, tint = theme.textSecondary) },
+                            onClick = {
+                                showMenu = false
+                                onInspectSpectrogram()
+                            }
+                        )
+                        if (onMixWithThis != null) {
+                            DropdownMenuItem(
+                                text = { Text("Mix With This", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = theme.accent) },
+                                onClick = {
+                                    showMenu = false
+                                    onMixWithThis()
+                                }
+                            )
+                        }
+                        if (onInspectQuality != null) {
+                            DropdownMenuItem(
+                                text = { Text("Inspect Quality", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, tint = Color(0xFF00E676)) },
+                                onClick = {
+                                    showMenu = false
+                                    onInspectQuality()
+                                }
+                            )
+                        }
+                        if (onOpenLyrics != null) {
+                            DropdownMenuItem(
+                                text = { Text("Lyrics & Timestamps", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.MusicNote, contentDescription = null, tint = theme.accent) },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenLyrics()
+                                }
+                            )
+                        }
+                        if (onOpenTrackIntelligence != null) {
+                            DropdownMenuItem(
+                                text = { Text("Track Intelligence", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null, tint = theme.accent) },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenTrackIntelligence()
+                                }
+                            )
+                        }
+                        if (track.hasPlaybackIssue) {
+                            DropdownMenuItem(
+                                text = { Text("Diagnose & Repair", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenPlaybackIssueSheet?.invoke(track)
+                                }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Track Inspector", color = theme.accent, fontWeight = FontWeight.SemiBold) },
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = theme.accent) },
+                            onClick = {
+                                showMenu = false
+                                onInspectProperties()
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Sortable desktop column header bar for Pro theme library browser.
+ * Inspired by Pioneer rekordbox workstation library columns:
+ * - # (Track index / chronological)
+ * - Art (Album art thumbnail)
+ * - Title (Sortable A-Z / Z-A)
+ * - Artist (Sortable A-Z / Z-A)
+ * - BPM (Sortable High-Low / Low-High)
+ * - Key (Sortable Musical / Camelot Key)
+ * - Time (Sortable Duration)
+ * - Quality (Format & Lossless)
+ */
+@Composable
+private fun ProSongsTableHeader(
+    sortMode: SongSortMode,
+    onSortChange: (SongSortMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val theme = SoundSyncTheme.current
+    Surface(
+        color = theme.surfaceSunken,
+        border = BorderStroke(0.5.dp, theme.divider),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // # column
+            Text(
+                text = "#",
+                color = if (sortMode == SongSortMode.DATE_DESC) theme.accent else theme.textMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier
+                    .width(28.dp)
+                    .clickable { onSortChange(SongSortMode.DATE_DESC) }
+            )
+
+            // Artwork spacer
+            Spacer(modifier = Modifier.width(30.dp))
+
+            // Title Column (sortable)
+            Row(
+                modifier = Modifier
+                    .weight(2.4f)
+                    .clickable {
+                        onSortChange(if (sortMode == SongSortMode.TITLE_ASC) SongSortMode.TITLE_DESC else SongSortMode.TITLE_ASC)
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "TITLE",
+                    color = if (sortMode == SongSortMode.TITLE_ASC || sortMode == SongSortMode.TITLE_DESC) theme.accent else theme.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.8.sp
+                )
+                if (sortMode == SongSortMode.TITLE_ASC) Text(" ▲", color = theme.accent, fontSize = 9.sp)
+                if (sortMode == SongSortMode.TITLE_DESC) Text(" ▼", color = theme.accent, fontSize = 9.sp)
+            }
+
+            // Artist Column (sortable)
+            Row(
+                modifier = Modifier
+                    .weight(1.8f)
+                    .clickable {
+                        onSortChange(if (sortMode == SongSortMode.ARTIST_ASC) SongSortMode.ARTIST_DESC else SongSortMode.ARTIST_ASC)
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "ARTIST",
+                    color = if (sortMode == SongSortMode.ARTIST_ASC || sortMode == SongSortMode.ARTIST_DESC) theme.accent else theme.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 0.8.sp
+                )
+                if (sortMode == SongSortMode.ARTIST_ASC) Text(" ▲", color = theme.accent, fontSize = 9.sp)
+                if (sortMode == SongSortMode.ARTIST_DESC) Text(" ▼", color = theme.accent, fontSize = 9.sp)
+            }
+
+            // BPM Column (sortable)
+            Row(
+                modifier = Modifier
+                    .width(46.dp)
+                    .clickable {
+                        onSortChange(if (sortMode == SongSortMode.BPM_DESC) SongSortMode.BPM_ASC else SongSortMode.BPM_DESC)
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "BPM",
+                    color = if (sortMode == SongSortMode.BPM_DESC || sortMode == SongSortMode.BPM_ASC) theme.accent else theme.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                if (sortMode == SongSortMode.BPM_DESC) Text("▼", color = theme.accent, fontSize = 8.sp)
+                if (sortMode == SongSortMode.BPM_ASC) Text("▲", color = theme.accent, fontSize = 8.sp)
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Key Column (sortable)
+            Row(
+                modifier = Modifier
+                    .width(36.dp)
+                    .clickable {
+                        onSortChange(if (sortMode == SongSortMode.KEY_ASC) SongSortMode.KEY_DESC else SongSortMode.KEY_ASC)
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "KEY",
+                    color = if (sortMode == SongSortMode.KEY_ASC || sortMode == SongSortMode.KEY_DESC) theme.accent else theme.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                if (sortMode == SongSortMode.KEY_ASC) Text("▲", color = theme.accent, fontSize = 8.sp)
+                if (sortMode == SongSortMode.KEY_DESC) Text("▼", color = theme.accent, fontSize = 8.sp)
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Time Column (sortable)
+            Row(
+                modifier = Modifier
+                    .width(42.dp)
+                    .clickable {
+                        onSortChange(if (sortMode == SongSortMode.DURATION_DESC) SongSortMode.DURATION_ASC else SongSortMode.DURATION_DESC)
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "TIME",
+                    color = if (sortMode == SongSortMode.DURATION_DESC || sortMode == SongSortMode.DURATION_ASC) theme.accent else theme.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                if (sortMode == SongSortMode.DURATION_DESC) Text("▼", color = theme.accent, fontSize = 8.sp)
+                if (sortMode == SongSortMode.DURATION_ASC) Text("▲", color = theme.accent, fontSize = 8.sp)
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Quality Column
+            Text(
+                text = "QUAL",
+                color = theme.textMuted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.width(36.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            // ⋮ Menu spacer
+            Spacer(modifier = Modifier.width(30.dp))
+        }
+    }
+}
+
+/**
+ * Rectangular, high-density desktop row for Pro theme.
+ * Supports Compact (38dp) and Comfortable (48dp) row density modes.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ProSongTrackRow(
+    track: Track,
+    index: Int?,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onToggleSelection: () -> Unit,
+    onClick: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onQueueTrack: (playNext: Boolean) -> Unit,
+    onInspectProperties: () -> Unit,
+    onInspectSpectrogram: () -> Unit,
+    onMixWithThis: (() -> Unit)? = null,
+    onInspectQuality: (() -> Unit)? = null,
+    onOpenLyrics: (() -> Unit)? = null,
+    onOpenTrackIntelligence: (() -> Unit)? = null,
+    onOpenPlaybackIssueSheet: ((Track) -> Unit)? = null
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val theme = SoundSyncTheme.current
+    val density = LocalLibraryDensity.current
+
+    val rowHeight = if (density == ProLibraryDensity.COMPACT) 38.dp else 48.dp
+    val thumbSize = if (density == ProLibraryDensity.COMPACT) 26.dp else 34.dp
+    val titleSize = if (density == ProLibraryDensity.COMPACT) 12.sp else 13.5.sp
+    val subSize = if (density == ProLibraryDensity.COMPACT) 10.sp else 11.sp
+
+    val formattedDuration = remember(track.durationSeconds) {
+        val min = track.durationSeconds / 60
+        val sec = track.durationSeconds % 60
+        String.format(Locale.US, "%d:%02d", min, sec)
+    }
+
+    val isAvailable = track.isAvailable
+
+    val rowBg = when {
+        isSelected -> theme.selectedSurface
+        isCurrent -> theme.playingSurface
+        else -> Color.Transparent
+    }
+
+    Surface(
+        shape = RoundedCornerShape(theme.cornerSmall),
+        color = rowBg,
+        border = if (isSelected) BorderStroke(0.5.dp, theme.accent) else null,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(rowHeight)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onToggleSelection
+            )
+            .testTag("song_track_row_${track.id}")
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Subtle blue left edge indicator for current playing track or selected track
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(if (isCurrent || isSelected) theme.accent else Color.Transparent)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Multi-select Checkbox
+                if (isSelectionMode) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onToggleSelection() },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = theme.accent,
+                            checkmarkColor = Color.White,
+                            uncheckedColor = theme.textMuted
+                        ),
+                        modifier = Modifier
+                            .size(26.dp)
+                            .padding(end = 4.dp)
+                    )
+                }
+
+                // # / Play Status indicator (width 28dp)
+                Box(
+                    modifier = Modifier.width(28.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (isCurrent) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Equalizer else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Playing" else "Paused",
+                            tint = theme.accent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Text(
+                            text = if (index != null) "${index + 1}" else "",
+                            color = theme.textMuted,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Artwork Thumbnail (size thumbSize)
+                Box(
+                    modifier = Modifier
+                        .size(thumbSize)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (isCurrent) theme.surfaceRaised else theme.surfaceSunken)
+                        .border(0.5.dp, theme.divider, RoundedCornerShape(2.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!isAvailable) {
+                        Icon(
+                            imageVector = Icons.Default.CloudOff,
+                            contentDescription = "Unavailable",
+                            tint = theme.textDisabled,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    } else {
+                        Text(
+                            text = track.format.take(3),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (track.qualityRating.isLossless) Color(0xFF30D158) else theme.accent,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Title (weight 2.4f)
+                Text(
+                    text = track.title,
+                    fontSize = titleSize,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                    color = if (!isAvailable) theme.textDisabled else if (isCurrent) theme.accent else theme.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(2.4f)
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Artist (weight 1.8f)
+                Text(
+                    text = track.artist,
+                    fontSize = subSize,
+                    color = if (!isAvailable) theme.textDisabled else theme.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1.8f)
+                )
+
+                // BPM (width 46dp)
+                Text(
+                    text = if (track.bpm > 0) String.format(Locale.US, "%.1f", track.bpm) else "—",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isCurrent) theme.accent else theme.textSecondary,
+                    modifier = Modifier.width(46.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Key (width 36dp)
+                val keyDisplay = track.camelotKey.ifBlank { track.musicalKey.ifBlank { "—" } }
+                Text(
+                    text = keyDisplay,
+                    fontSize = 10.5.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF38BDF8),
+                    modifier = Modifier.width(36.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Time (width 42dp)
+                Text(
+                    text = formattedDuration,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = theme.textMuted,
+                    modifier = Modifier.width(42.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Quality Badge (width 36dp)
+                Surface(
+                    shape = RoundedCornerShape(2.dp),
+                    color = theme.surfaceRaised,
+                    border = BorderStroke(0.5.dp, theme.divider),
+                    modifier = Modifier.width(36.dp)
+                ) {
+                    Text(
+                        text = if (track.qualityRating.isLossless) "FLAC" else if (track.bitrateKbps > 0) "${track.bitrateKbps}" else track.format,
+                        fontSize = 8.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = if (track.qualityRating.isLossless) Color(0xFF30D158) else theme.textMuted,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 1.dp)
+                    )
+                }
+
+                // ⋮ Options Menu Button
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier
+                            .size(28.dp)
+                            .testTag("track_menu_button_${track.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = theme.textMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(theme.surfaceRaised)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add to Playlist", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = theme.accent) },
+                            onClick = {
+                                showMenu = false
+                                onAddToPlaylist()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Play Next", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null, tint = theme.accent) },
+                            onClick = {
+                                showMenu = false
+                                onQueueTrack(true)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add to Queue", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Queue, contentDescription = null, tint = theme.textSecondary) },
+                            onClick = {
+                                showMenu = false
+                                onQueueTrack(false)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Analyse Spectrogram", color = theme.textPrimary) },
+                            leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, tint = Color(0xFFA855F7)) },
+                            onClick = {
+                                showMenu = false
+                                onInspectSpectrogram()
+                            }
+                        )
+                        if (onMixWithThis != null) {
+                            DropdownMenuItem(
+                                text = { Text("Mix With This", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = theme.accent) },
+                                onClick = {
+                                    showMenu = false
+                                    onMixWithThis()
+                                }
+                            )
+                        }
+                        if (onInspectQuality != null) {
+                            DropdownMenuItem(
+                                text = { Text("Inspect Quality", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.GraphicEq, contentDescription = null, tint = Color(0xFF30D158)) },
+                                onClick = {
+                                    showMenu = false
+                                    onInspectQuality()
+                                }
+                            )
+                        }
+                        if (onOpenLyrics != null) {
+                            DropdownMenuItem(
+                                text = { Text("Lyrics & Timestamps", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.MusicNote, contentDescription = null, tint = theme.accent) },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenLyrics()
+                                }
+                            )
+                        }
+                        if (onOpenTrackIntelligence != null) {
+                            DropdownMenuItem(
+                                text = { Text("Track Intelligence", color = theme.textPrimary) },
+                                leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null, tint = Color(0xFFA855F7)) },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenTrackIntelligence()
+                                }
+                            )
+                        }
+                        if (track.hasPlaybackIssue) {
+                            DropdownMenuItem(
+                                text = { Text("Diagnose & Repair", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+                                leadingIcon = { Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showMenu = false
+                                    onOpenPlaybackIssueSheet?.invoke(track)
+                                }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Track Inspector", color = theme.accent, fontWeight = FontWeight.SemiBold) },
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = theme.accent) },
+                            onClick = {
+                                showMenu = false
+                                onInspectProperties()
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
