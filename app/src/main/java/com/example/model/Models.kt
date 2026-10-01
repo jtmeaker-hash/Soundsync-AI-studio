@@ -1,0 +1,511 @@
+package com.example.model
+
+enum class MusicPlatform(val displayName: String, val iconName: String, val colorHex: Long) {
+    LOCAL("Local Storage", "folder", 0xFF05FFA1),
+    SPOTIFY("Spotify", "library_music", 0xFF1DB954),
+    SOUNDCLOUD("SoundCloud", "cloud", 0xFFFF5500),
+    GOOGLE_DRIVE("Google Drive", "cloud_upload", 0xFF4285F4)
+}
+
+enum class StorageSourceType(val displayName: String, val defaultPath: String, val isRemovable: Boolean) {
+    INTERNAL("Internal Audio", "/storage/emulated/0/Music", false),
+    USB_SSD("USB-C SSD (Crucial X8)", "/mnt/media_rw/USB_DJ_VAULT/Tracks", true),
+    SD_CARD("MicroSD Card (SanDisk 512G)", "/storage/0000-0000/DJ_Sets", true),
+    DOWNLOADS("Downloads Folder", "/storage/emulated/0/Download", false),
+    CLOUD_VAULT("Cloud Sync Cache", "/storage/emulated/0/SoundSync/CloudCache", false)
+}
+
+@androidx.compose.runtime.Immutable
+data class StorageSource(
+    val id: String,
+    val type: StorageSourceType,
+    val label: String,
+    val path: String,
+    val isOnline: Boolean = true,
+    val trackCount: Int = 0,
+    val freeSpaceGb: Double = 128.4,
+    val totalSpaceGb: Double = 512.0,
+    val lastScanned: Long = System.currentTimeMillis()
+)
+
+enum class SyncState {
+    LOCAL_ONLY,
+    SYNCED,
+    SYNCING,
+    CLOUD_ONLY,
+    MODIFIED_OFFLINE
+}
+
+enum class CoverArtFilter(val label: String) {
+    ALL("All Tracks"),
+    NO_COVER_ART("No Cover Art"),
+    HAS_COVER_ART("Has Cover Art");
+
+    companion object {
+        val NO_COVER: CoverArtFilter get() = NO_COVER_ART
+        val HAS_COVER: CoverArtFilter get() = HAS_COVER_ART
+    }
+}
+
+typealias CoverArtFilterMode = CoverArtFilter
+
+
+enum class AudioQualityRating(val label: String, val description: String, val cutoffKhz: Float, val isLossless: Boolean) {
+    STUDIO_LOSSLESS("24-bit Hi-Res FLAC", "No spectral cutoffs. Full frequencies up to 24kHz+", 24.0f, true),
+    TRUE_LOSSLESS("16-bit Lossless FLAC", "Full dynamic range. Pure uncompressed acoustic frequency up to 22.05kHz", 22.0f, true),
+    TRUE_320("True 320 kbps MP3", "Clean spectral ceiling at 20.5 kHz. High density high-end detail", 20.5f, false),
+    TRUE_256("256 kbps AAC/MP3", "Standard broadcast cutoff at 19.0 kHz. Clean harmonics", 19.0f, false),
+    SUSPICIOUS_UPSCALED("Fake 320k (Upscaled)", "Brickwall cutoff at ~16 kHz with zero high frequency. Transcoded from 128k!", 15.5f, false),
+    LOW_128("128 kbps Low Quality", "Severe shelf cutoff at 15-16 kHz. Poor club audio fidelity", 15.0f, false),
+    UNKNOWN_BITRATE("Bitrate Unknown", "Encoded bitrate could not be read reliably from the file. Displayed instead of guessing.", 20.0f, false)
+}
+
+data class SpectrogramAnalysis(
+    val cutoffKhz: Float,
+    val sampleRate: Int = 44100,
+    val bitDepth: Int = 16,
+    val bitrateKbps: Int = 320,
+    val dynamicRangeDb: Float = 14.2f,
+    val qualityRating: AudioQualityRating = AudioQualityRating.TRUE_320,
+    val spectralSlices: List<FloatArray> = emptyList(), // FFT magnitude columns [time][freq_bin]
+    val notes: String = "Clean audio spectrum verified.",
+    /** Actual encoded bitrate read from the container/codec (0 = unknown). Primary bitrate source. */
+    val encodedBitrateKbps: Int = 0,
+    /** CBR/VBR only when genuinely verified from the bitstream; null when undetermined. */
+    val bitrateMode: BitrateMode? = null,
+    /** True when the spectral ceiling is well below what the encoded bitrate implies. Secondary indicator only. */
+    val possibleLossyTranscode: Boolean = false,
+    /** Track id the analysis belongs to; guards against stale async results. */
+    val analyzedTrackId: String = ""
+)
+
+/** Bitstream rate mode. Only set when actually verified from the container/bitstream; never guessed. */
+enum class BitrateMode { CBR, VBR }
+
+/**
+ * Distinguishes the origin and verification status of a track's metadata.
+ */
+enum class MetadataProvenance(
+    val shortLabel: String,
+    val fullLabel: String,
+    val description: String
+) {
+    APPLE_SEARCH(
+        shortLabel = "APPLE",
+        fullLabel = "Apple iTunes Catalogue",
+        description = "Identified against official Apple iTunes Search catalogue."
+    ),
+    LOCAL_DSP_ANALYZED(
+        shortLabel = "LOCAL DSP",
+        fullLabel = "Locally Analyzed Audio DSP",
+        description = "BPM, Musical Key, and Camelot Key computed directly from decoded PCM audio via local autocorrelation & FFT chroma."
+    ),
+    VERIFIED_HYBRID(
+        shortLabel = "HYBRID",
+        fullLabel = "Hybrid Verified (Apple + Local DSP)",
+        description = "Official Apple catalogue release metadata paired with high-precision local PCM audio analysis."
+    ),
+    EMBEDDED_TAGS(
+        shortLabel = "EMBEDDED",
+        fullLabel = "Embedded File Tags",
+        description = "Standard metadata read from local audio container ID3/Vorbis tags without external verification."
+    )
+}
+
+enum class MetadataScanState {
+    NOT_SCANNED,
+    QUEUED,
+    PENDING,
+    ITUNES_SEARCH,
+    SEARCHING_APPLE,
+    ITUNES_MATCHED,
+    IDENTIFIED,
+    MBID_RESOLUTION,
+    COVER_ART_LOOKUP,
+    SEARCHING_ARTWORK,
+    COVER_ART_DOWNLOADED,
+    WAITING_TO_WRITE,
+    NEEDS_WRITE_PERMISSION,
+    WRITING_TAGS,
+    VERIFYING_FILE,
+    COMPLETE,
+    PARTIAL,
+    LOW_CONFIDENCE,
+    NO_MATCH,
+    NOT_FOUND,
+    NETWORK_RETRY,
+    TEMPORARY_FAILURE,
+    FAILED,
+    FAILED_WRITE_VERIFICATION,
+    USER_CONFIRMED,
+    // Safe Metadata Pipeline States (Section 16)
+    VERIFIED,
+    REVIEW_REQUIRED,
+    CONFLICTING_RESULTS,
+    REJECTED,
+    APPROVED,
+    APPLIED,
+    RESTORED
+}
+
+enum class MetadataWriteState(
+    val displayName: String,
+    val statusSymbol: String,
+    val userSummary: String
+) {
+    NOT_ANALYSED("Not Analysed", "—", "Metadata not yet analysed"),
+    METADATA_FOUND("Metadata Found", "ℹ", "Metadata identified, pending file write"),
+    DATABASE_ONLY("Stored in SoundSync only", "⚠", "Stored in SoundSync only"),
+    WRITING_TO_FILE("Writing to File", "⏳", "Writing metadata to file"),
+    FILE_WRITE_SUCCESS("Embedded in file", "✓", "Embedded in file"),
+    FILE_WRITE_PARTIAL("Partially embedded", "⚠", "Partially embedded in file"),
+    FILE_WRITE_FAILED("Write failed", "✕", "File write failed"),
+    READ_ONLY_FILE("Read-only file", "🔒", "Audio file is read-only"),
+    FORMAT_WRITE_UNSUPPORTED("Unsupported format", "ℹ", "File format does not support tag writing"),
+    PERMISSION_REQUIRED("Permission required", "⚠", "Permission required to write file"),
+    PENDING_APPROVAL("Pending approval", "⏳", "Pending approval to embed into file"),
+    WRITING_ARTWORK("Writing artwork...", "⏳", "Writing artwork into audio file"),
+    ARTWORK_SAVED("Artwork saved", "✓", "Artwork embedded in audio file"),
+    TEXT_METADATA_WRITTEN("Text tags embedded", "✓", "Text metadata embedded in audio file"),
+    ARTWORK_EMBEDDED("Artwork embedded", "✓", "Artwork embedded in audio file"),
+    ARTWORK_WRITE_FAILED("Artwork write failed", "⚠", "Failed to embed artwork into audio file"),
+    ARTWORK_CACHED("Artwork cached", "ℹ", "Artwork cached locally, awaiting approval")
+}
+
+enum class AnalysisState {
+    NOT_ANALYSED,
+    QUEUED,
+    ANALYSING,
+    PARTIAL,
+    COMPLETE,
+    FAILED,
+    FAILED_RETRYABLE,
+    FAILED_PERMANENT
+}
+
+@androidx.compose.runtime.Immutable
+data class Track(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val album: String = "Single",
+    val genre: String = "DJ Library",
+    val subGenre: String = "Club",
+    val bpm: Double = 0.0,
+    val bpmConfidence: Double = 0.0,
+    val bpmAnalysisVersion: String? = null,
+    val bpmLastAnalyzed: Long? = null,
+    val musicalKey: String = "", // Canonical key name; empty means unknown
+    val camelotKey: String = "",
+    val keyConfidence: Double = 0.0,
+    val keyAnalysisVersion: String? = null,
+    val keyLastAnalyzed: Long? = null,
+    val durationSeconds: Int = 210,
+    val bitrateKbps: Int = 320,
+    val format: String = "MP3", // MP3, FLAC, WAV, AAC, AIFF
+    val fileSizeMb: Double = 8.4,
+    val filePath: String = "/Music/track.mp3",
+    val directoryPath: String = "/Music",
+    val isOfflineReady: Boolean = true,
+    val isAvailable: Boolean = true,
+    val syncState: SyncState = SyncState.SYNCED,
+    val platforms: List<MusicPlatform> = listOf(MusicPlatform.LOCAL),
+    val energyRating: Int = 7, // 1 to 10 scale for DJ set building
+    val hotCues: List<Int> = listOf(0, 32, 64, 128), // Cue positions in beats/seconds
+    val isAiTagged: Boolean = false,
+    val qualityRating: AudioQualityRating = AudioQualityRating.TRUE_320,
+    val dateAdded: Long = System.currentTimeMillis(),
+    val crateId: String = "default",
+    val sourceId: String = "internal",
+    val trackNumber: Int = 0,
+    val discNumber: Int = 1,
+    val albumArtist: String = "",
+    val releaseDate: String? = null,
+    val releaseYear: Int? = null,
+    val recordLabel: String? = null,
+    val barcode: String? = null,
+    val isrc: String? = null,
+    val appleTrackId: Long? = null,
+    val appleCollectionId: Long? = null,
+    val appleArtistId: Long? = null,
+    val theAudioDbAlbumId: String? = null,
+    val theAudioDbArtistId: String? = null,
+    val artworkSource: String? = null,
+    val artworkCachePath: String? = null,
+    val metadataScanState: String = "NOT_SCANNED",
+    val metadataScanTimestamp: Long? = null,
+    val userConfirmedMetadata: Boolean = false,
+    val artworkUrl: String? = null,
+    val storageRelativePath: String = "",
+    val contentFingerprint: String = "",
+    val rating: Int = 0, // 0 = unrated, 1..5 stars
+    val customTags: String = "", // Comma-separated DJ tags (Peak Time, Vocal, Weapon, etc.)
+    val notes: String = "", // DJ performance & mixing notes
+    val composer: String = "",
+    val isManualBpm: Boolean = false,
+    val isManualKey: Boolean = false,
+    val analysisState: AnalysisState = AnalysisState.NOT_ANALYSED,
+    val analysisVersion: Int = 1,
+    val lastAnalysedAt: Long? = null,
+    val analysisFailureReason: String? = null,
+    val analysisRetryCount: Int = 0,
+    val fileModifiedTimestamp: Long = 0L,
+    val originalArtist: String? = null,
+    val resolvedArtist: String? = null,
+    val metadataSource: String? = null,
+    val metadataConfidence: Double = 0.0,
+    val fingerprintAlgorithm: String? = null,
+    val fingerprintTimestamp: Long? = null,
+    val metadataWriteState: String = MetadataWriteState.NOT_ANALYSED.name,
+    val playabilityStatus: String = "UNKNOWN",
+    val playbackErrorCode: String? = null,
+    val playbackErrorMessage: String? = null,
+    val lastPlaybackValidation: Long? = null,
+    val lastRepairAttempt: Long? = null,
+    val resolvedUri: String? = null,
+    val validationFileSize: Long = 0L,
+    val validationModifiedTimestamp: Long = 0L,
+    val physicalMediaKey: String = "",
+    val mediaStoreId: Long? = null,
+    val mediaStoreVolume: String? = null,
+    val fieldProvenanceJson: String = "{}"
+) {
+    val playability: PlayabilityStatus
+        get() = try { PlayabilityStatus.valueOf(playabilityStatus) } catch (_: Exception) { PlayabilityStatus.UNKNOWN }
+
+    val isActuallyPlayable: Boolean
+        get() = playability == PlayabilityStatus.PLAYABLE || playability == PlayabilityStatus.REPAIRED || playability == PlayabilityStatus.UNKNOWN
+
+    val hasPlaybackIssue: Boolean
+        get() = playability.isProblem
+
+    val playabilityBadgeText: String
+        get() = playability.shortBadge
+
+    val writeState: MetadataWriteState
+        get() = try { MetadataWriteState.valueOf(metadataWriteState) } catch (_: Exception) { MetadataWriteState.NOT_ANALYSED }
+
+    val isEmbeddedInFile: Boolean
+        get() = metadataWriteState == MetadataWriteState.FILE_WRITE_SUCCESS.name
+
+    val tagsList: List<String>
+        get() = customTags.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+    val hasRealArtwork: Boolean
+        get() = com.example.metadata.artwork.CanonicalArtworkDetector.hasArtwork(track = this)
+
+    val artworkStatus: com.example.metadata.artwork.ArtworkStatus
+        get() = com.example.metadata.artwork.CanonicalArtworkDetector.detectArtworkStatus(track = this)
+
+    val isLossless: Boolean
+        get() = qualityRating.isLossless || format.equals("FLAC", true) || format.equals("WAV", true) || format.equals("AIFF", true)
+
+    val hasValidBpm: Boolean
+        get() = bpm > 30.0 && bpm < 300.0
+
+    val hasValidKey: Boolean
+        get() = musicalKey.isNotBlank() && musicalKey != "—" && musicalKey != "-" && !musicalKey.equals("Unknown", ignoreCase = true)
+
+    val isAppleIdentified: Boolean
+        get() = appleTrackId != null || !theAudioDbAlbumId.isNullOrBlank() ||
+                metadataScanState == MetadataScanState.COMPLETE.name ||
+                metadataScanState == MetadataScanState.IDENTIFIED.name ||
+                metadataScanState == MetadataScanState.USER_CONFIRMED.name ||
+                metadataScanState == MetadataScanState.RESTORED.name ||
+                metadataScanState == MetadataScanState.APPROVED.name ||
+                metadataScanState == MetadataScanState.APPLIED.name ||
+                metadataScanState == MetadataScanState.VERIFIED.name ||
+                userConfirmedMetadata
+
+    val isLocallyAnalyzed: Boolean
+        get() = (bpmLastAnalyzed != null && bpmLastAnalyzed > 0L) ||
+                (keyLastAnalyzed != null && keyLastAnalyzed > 0L) ||
+                !bpmAnalysisVersion.isNullOrBlank() ||
+                !keyAnalysisVersion.isNullOrBlank()
+
+    val metadataProvenance: MetadataProvenance
+        get() = when {
+            isAppleIdentified && isLocallyAnalyzed -> MetadataProvenance.VERIFIED_HYBRID
+            isAppleIdentified -> MetadataProvenance.APPLE_SEARCH
+            isLocallyAnalyzed -> MetadataProvenance.LOCAL_DSP_ANALYZED
+            else -> MetadataProvenance.EMBEDDED_TAGS
+        }
+
+    val bpmDisplay: String
+        get() = if (hasValidBpm) String.format(java.util.Locale.US, "%.1f BPM", bpm) else "BPM —"
+
+    val bpmIntDisplay: String
+        get() = if (hasValidBpm) "${bpm.toInt()} BPM" else "BPM —"
+
+    val bpmValueDisplay: String
+        get() = if (hasValidBpm) String.format(java.util.Locale.US, "%.1f", bpm) else "—"
+
+    val keyDisplay: String
+        get() = if (hasValidKey) "KEY $musicalKey" else "KEY —"
+
+    val keyShortDisplay: String
+        get() = if (hasValidKey) musicalKey else "—"
+
+    fun getFieldProvenance(fieldName: String): com.example.metadata.merge.MetadataSourceProvenance {
+        return com.example.metadata.merge.TrackFieldProvenance.parse(fieldProvenanceJson)[fieldName.lowercase()]
+            ?: com.example.metadata.merge.LocalFirstMetadataMerger.inferFieldProvenance(this, fieldName)
+    }
+
+    fun withFieldProvenance(fieldName: String, provenance: com.example.metadata.merge.MetadataSourceProvenance): Track {
+        val current = com.example.metadata.merge.TrackFieldProvenance.parse(fieldProvenanceJson).toMutableMap()
+        current[fieldName.lowercase()] = provenance
+        return this.copy(fieldProvenanceJson = com.example.metadata.merge.TrackFieldProvenance.toJson(current))
+    }
+
+    fun getAllFieldProvenances(): Map<String, com.example.metadata.merge.MetadataSourceProvenance> {
+        val map = com.example.metadata.merge.TrackFieldProvenance.parse(fieldProvenanceJson).toMutableMap()
+        val fields = listOf("title", "artist", "album", "genre", "year", "bpm", "key", "artwork")
+        for (f in fields) {
+            if (!map.containsKey(f)) {
+                map[f] = com.example.metadata.merge.LocalFirstMetadataMerger.inferFieldProvenance(this, f)
+            }
+        }
+        return map
+    }
+}
+
+data class Album(
+    val id: String,
+    val title: String,
+    val artist: String,
+    val trackCount: Int,
+    val totalDurationSeconds: Int,
+    val tracks: List<Track>,
+    val year: Int = 0,
+    val artworkUri: String? = null
+)
+
+data class Artist(
+    val id: String,
+    val name: String,
+    val albumCount: Int,
+    val songCount: Int,
+    val totalDurationSeconds: Int,
+    val albums: List<Album>,
+    val songs: List<Track>
+)
+
+@androidx.compose.runtime.Immutable
+data class Playlist(
+    val id: String,
+    val name: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    val sourceId: String? = null,
+    val backingFileUri: String? = null,
+    val backingRelativePath: String? = null,
+    val isRockboxCompatible: Boolean = true,
+    val isImported: Boolean = false,
+    val trackCount: Int = 0,
+    val totalDurationSeconds: Int = 0,
+    val tracks: List<Track> = emptyList(),
+    val missingTrackCount: Int = 0,
+    val storageLocationLabel: String = "Internal Storage",
+    val hasCrossStorageWarning: Boolean = false
+)
+
+data class FolderItem(
+    val name: String,
+    val path: String,
+    val trackCount: Int = 0,
+    val subFolderCount: Int = 0,
+    val totalSizeMb: Double = 0.0
+)
+
+data class TrackFolder(
+    val id: String,
+    val name: String,
+    val path: String,
+    val trackCount: Int = 0,
+    val totalDurationSeconds: Int = 0,
+    val tracks: List<Track> = emptyList()
+)
+
+data class DjCrate(
+    val id: String,
+    val name: String,
+    val description: String,
+    val colorHex: Long = 0xFF00F0FF,
+    val bpmRange: Pair<Double, Double> = 120.0 to 130.0,
+    val trackCount: Int = 0
+)
+
+data class DuplicateMatch(
+    val trackA: Track,
+    val trackB: Track,
+    val similarityScore: Int, // 0 to 100
+    val reason: String,
+    val recommendedAction: String // "Keep Track B (Higher Quality FLAC)", etc.
+)
+
+enum class FileOperationType(val label: String) {
+    MOVE("Move"),
+    COPY("Copy"),
+    RENAME("Rename"),
+    TRASH("Safe Trash"),
+    AUTO_TAG("Batch Tag")
+}
+
+@androidx.compose.runtime.Immutable
+data class OperationJournalItem(
+    val id: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val operationType: FileOperationType,
+    val affectedTracksCount: Int,
+    val summary: String,
+    val canUndo: Boolean = true,
+    val isUndone: Boolean = false,
+    /** Snapshot for real undo: old -> new path per track (move), or full path (trash). */
+    val undoData: List<Pair<String, String>> = emptyList()
+)
+
+enum class ExplorerSortOption(val displayName: String) {
+    NAME_ASC("Name (A-Z)"),
+    BPM_ASC("BPM (Low-High)"),
+    BPM_DESC("BPM (High-Low)"),
+    KEY("Camelot Key"),
+    QUALITY("Audio Quality"),
+    ENERGY_DESC("Energy (10-1)"),
+    DATE_DESC("Date Added"),
+    SIZE_DESC("File Size")
+}
+
+data class ScanSummaryResult(
+    val discovered: Int,
+    val imported: Int,
+    val skipped: Int,
+    val failed: Int
+) {
+    val totalProcessed: Int
+        get() = imported + skipped + failed
+
+    val userMessage: String
+        get() {
+            if (discovered == 0 && imported == 0 && skipped == 0) {
+                return "No audio files found on storage."
+            }
+            if (imported == 0 && skipped > 0) {
+                return if (failed > 0) {
+                    "All $skipped tracks are already in your library and were skipped ($failed unreadable)."
+                } else {
+                    "All $skipped tracks are already in your library and were skipped."
+                }
+            }
+            val parts = mutableListOf<String>()
+            parts.add("$imported ${if (imported == 1) "track" else "tracks"} imported")
+            if (skipped > 0) {
+                parts.add("$skipped ${if (skipped == 1) "track" else "tracks"} already in library and skipped")
+            }
+            if (failed > 0) {
+                parts.add("$failed ${if (failed == 1) "file" else "files"} could not be read")
+            }
+            return parts.joinToString("\n")
+        }
+}
+
+
