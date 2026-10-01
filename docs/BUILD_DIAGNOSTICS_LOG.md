@@ -2481,3 +2481,138 @@ No explicit Fixes: section in commit message.
 ```
 
 ---
+
+## CI Run 36827181077 — FAIL
+
+- **Date:** 2026-10-01T06:54:42.323115+00:00
+- **Repository:** `jtmeaker-hash/Soundsync-AI-studio`
+- **Branch/ref:** `main`
+- **Commit:** [`de53d8b923`](https://github.com/jtmeaker-hash/Soundsync-AI-studio/commit/de53d8b923b7c7ffa316c4c701b17b58f9fe1dd2)
+- **Author:** jtmeaker-hash <jtmeaker@gmail.com>
+- **Actor:** `jtmeaker-hash`
+- **Event:** `push`
+- **Full log / report:** [Open GitHub Actions run](https://github.com/jtmeaker-hash/Soundsync-AI-studio/actions/runs/36827181077)
+
+### Test & build results
+
+| Check | Result |
+|---|---|
+| Unit tests | ❌ FAIL |
+| Debug APK | ❌ FAIL |
+| Release APK | ⏭️ SKIPPED (non-release push) |
+
+### Issues
+
+No explicit Issues: section in commit message.
+
+### CI failures
+
+**Unit tests failed (exit 1)**
+- `FAILURE: Build failed with an exception.`
+- `* What went wrong:`
+- `> Failed to notify project evaluation listener.`
+- `> The file '/home/runner/work/Soundsync-AI-studio/Soundsync-AI-studio/.env.example' could not be found`
+- `BUILD FAILED in 8s`
+
+**Debug APK failed (exit 1)**
+- `FAILURE: Build failed with an exception.`
+- `* What went wrong:`
+- `> Failed to notify project evaluation listener.`
+- `> The file '/home/runner/work/Soundsync-AI-studio/Soundsync-AI-studio/.env.example' could not be found`
+- `BUILD FAILED in 7s`
+
+### Summary of changes
+
+ci: configure CI/CD pipelines and metadata debugger
+
+### Summary of fixes
+
+No explicit Fixes: section in commit message.
+
+### Commit/diff summary
+
+```text
+de53d8b ci: configure CI/CD pipelines and metadata debugger
+ .agents/subagents/metadata-debugger.md             |   26 +
+ .github/workflows/build-apk.yml                    |  259 ++
+ .github/workflows/build-debug-apk.yml              |   61 +
+ .github/workflows/soundsync-ci-diagnostics.yml     |  183 +
+ .github/workflows/sync-main-to-debug.yml           |   79 +
+ .gitignore                                         |   20 +
+ .soundsync_master_build_progress.md                |  143 +
+ Notes.md                                           |  333 ++
+ README.md                                          |  334 +-
+ SOUNDSYNC_UPDATE_PACK_STATUS.md                    |  120 +
+ SOUNDSYNC_UPGRADE_25_29_PROGRESS.md                |  225 +
+ album_replace.py                                   |   71 +
+ app/.gitignore                                     |    1 +
+ app/build.gradle.kts                               |  187 +
+ app/proguard-rules.pro                             |   21 +
+ .../java/com/example/ExampleInstrumentedTest.kt    |   22 +
+ app/src/main/AndroidManifest.xml                   |  112 +
+ app/src/main/java/com/example/MainActivity.kt      |  392 ++
+ app/src/main/java/com/example/MainActivity.kt.orig |  386 ++
+ app/src/main/java/com/example/MainActivity.kt.rej  |   10 +
+ .../main/java/com/example/SoundSyncApplication.kt  |   86 +
+ .../main/java/com/example/analysis/AiAutoTagger.kt |  193 +
+ .../com/example/analysis/AudioFormatSniffer.kt     |  127 +
+ .../com/example/analysis/AudioQualityInspector.kt  |  371 ++
+ .../java/com/example/analysis/DuplicateDetector.kt |  210 +
+ .../com/example/analysis/LibraryAnalysisWorker.kt  |  204 +
+ .../java/com/example/analysis/PhraseDetector.kt    |  308 ++
+ .../com/example/analysis/PlayabilityValidator.kt   |  784 ++++
+ .../com/example/analysis/TrackAnalysisManager.kt   |  917 +++++
+ .../example/analysis/TrackAudioMetricsService.kt   |  179 +
+ .../example/analysis/TrackPlaybackHealthManager.kt |  179 +
+ .../com/example/analysis/TunebatMetadataService.kt |  589 +++
+ .../com/example/analysis/WavContainerParser.kt     |  481 +++
+ .../main/java/com/example/audio/AudioDecoder.kt    |  789 ++++
+ .../main/java/com/example/audio/BitrateProbe.kt    |  482 +++
+ .../main/java/com/example/audio/DjAudioEngine.kt   | 2601 ++++++++++++
+ .../java/com/example/audio/HaasSurroundEffect.kt   |  623 +++
+ .../main/java/com/example/audio/ParametricEq.kt    |  767 ++++
+ .../java/com/example/audio/ParametricEqManager.kt  |  734 ++++
+ .../com/example/audio/PlaybackGenerationGate.kt    |   32 +
+ .../java/com/example/audio/SpectrogramEngine.kt    |  599 +++
+ .../java/com/example/audio/WaveformAnalyzer.kt     |  162 +
+ .../main/java/com/example/audio/WaveformCache.kt   |  263 ++
+ .../com/example/backup/RestoreDiagnosticLogger.kt  |   76 +
+ .../com/example/backup/SoundSyncBackupManager.kt   |  900 ++++
+ .../com/example/backup/SoundSyncBackupModels.kt    |  600 +++
+ .../main/java/com/example/backup/TrackMatcher.kt   |  528 +++
+ app/src/main/java/com/example/brain/BrainModels.kt |   73 +
+ .../main/java/com/example/brain/LibraryBrain.kt    |  906 +++++
+ .../com/example/carmode/BluetoothCarReceiver.kt    |   57 +
+ .../java/com/example/carmode/CarModeManager.kt     |  464 +++
+ .../main/java/com/example/carmode/CarModeScreen.kt |  924 +++++
+ .../com/example/carmode/CarModeSettingsScreen.kt   |  661 +++
+ app/src/main/java/com/example/carmode/CarModels.kt |   51 +
+ .../com/example/command/CommandPaletteEngine.kt    |  431 ++
+ .../com/example/command/CommandPaletteModels.kt    |  112 +
+ .../com/example/command/CommandPaletteParser.kt    |  192 +
+ app/src/main/java/com/example/data/AppDatabase.kt  |  907 +++++
+ app/src/main/java/com/example/data/ArtistDao.kt    |   59 +
+ app/src/main/java/com/example/data/ArtistEntity.kt |   45 +
+ .../com/example/data/BulkOperationHistoryDao.kt    |   29 +
+ .../com/example/data/BulkOperationHistoryEntity.kt |   15 +
+ app/src/main/java/com/example/data/LyricsDao.kt    |   42 +
+ app/src/main/java/com/example/data/LyricsEntity.kt |   45 +
+ .../java/com/example/data/MetadataBackupDao.kt     |   46 +
+ .../java/com/example/data/MetadataBackupEntity.kt  |   37 +
+ .../java/com/example/data/MetadataHistoryDao.kt    |   47 +
+ .../java/com/example/data/MetadataHistoryEntity.kt |   26 +
+ .../com/example/data/MetadataReviewInboxDao.kt     |   60 +
+ .../com/example/data/MetadataReviewItemEntity.kt   |   41 +
+ .../java/com/example/data/PlaybackSessionDao.kt    |  184 +
+ .../java/com/example/data/PlaybackSessionEntity.kt |   28 +
+ app/src/main/java/com/example/data/PlaylistDao.kt  |  161 +
+ .../main/java/com/example/data/PlaylistEntity.kt   |   49 +
+ .../java/com/example/data/PlaylistTrackEntity.kt   |   18 +
+ app/src/main/java/com/example/data/SongFindDao.kt  |   48 +
+ .../main/java/com/example/data/SongFindEntity.kt   |   50 +
+ .../java/com/example/data/SongFindRepository.kt    |   40 +
+ .../main/java/com/example/data/SourceFolderDao.kt  |   39 +
+ .../java/com/example/data/SourceFolderEntity.kt    
+```
+
+---
